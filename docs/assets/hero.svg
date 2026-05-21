@@ -1,34 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" role="img" aria-label="StaleZero receipt and graph hero">
   <rect width="1200" height="620" fill="#f5f7f8"/>
-  <rect x="62" y="54" width="420" height="500" rx="18" fill="#101820"/>
-  <text x="96" y="110" fill="#fff" font-family="Inter,system-ui,sans-serif" font-size="34" font-weight="700">ProductPriceChanged</text>
+  <rect x="60" y="54" width="430" height="500" rx="18" fill="#101820"/>
+  <text x="96" y="110" fill="#ffffff" font-family="Inter,system-ui,sans-serif" font-size="34" font-weight="700">ProductPriceChanged</text>
   <text x="96" y="156" fill="#9fb2bf" font-family="Inter,system-ui,sans-serif" font-size="18">receipt: success</text>
   <g font-family="Inter,system-ui,sans-serif" font-size="18">
-    <text x="96" y="226" fill="#fff">Redis product:p1</text>
-    <text x="96" y="274" fill="#fff">React Query ["product","p1"]</text>
-    <text x="96" y="322" fill="#fff">SWR /api/products/p1</text>
-    <text x="96" y="370" fill="#fff">Next tag product:p1</text>
-    <text x="96" y="418" fill="#fff">Socket product:p1</text>
-    <text x="96" y="466" fill="#fff">Search products:p1</text>
+    <text x="96" y="226" fill="#ffffff">Redis product:p1</text>
+    <text x="96" y="274" fill="#ffffff">React Query ["product","p1"]</text>
+    <text x="96" y="322" fill="#ffffff">SWR /api/products/p1</text>
+    <text x="96" y="370" fill="#ffffff">Next tag product:p1</text>
+    <text x="96" y="418" fill="#ffffff">Socket product:p1</text>
+    <text x="96" y="466" fill="#ffffff">Search products:p1</text>
   </g>
-  <g stroke="#10b981" stroke-width="4" fill="none">
-    <path d="M548 180h160"/>
-    <path d="M548 310h160"/>
-    <path d="M548 440h160"/>
-    <path d="M838 180h160"/>
-    <path d="M838 310h160"/>
-    <path d="M838 440h160"/>
+
+  <g fill="none" stroke="#10b981" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M705 190 C742 190 742 310 780 310"/>
+    <path d="M960 310 C990 310 990 148 1020 148"/>
+    <path d="M960 310 C990 310 990 276 1020 276"/>
+    <path d="M960 310 C990 310 990 404 1020 404"/>
+    <path d="M960 310 C1000 310 1000 512 1040 512"/>
   </g>
+
   <g font-family="Inter,system-ui,sans-serif" font-size="20" fill="#101820">
-    <rect x="520" y="140" width="210" height="70" rx="12" fill="#fff" stroke="#d9dee3"/>
-    <text x="548" y="184">Mutation</text>
-    <rect x="710" y="270" width="210" height="70" rx="12" fill="#fff" stroke="#d9dee3"/>
-    <text x="742" y="314">Targets</text>
-    <rect x="990" y="140" width="150" height="70" rx="12" fill="#fff" stroke="#d9dee3"/>
-    <text x="1028" y="184">Redis</text>
-    <rect x="990" y="270" width="150" height="70" rx="12" fill="#fff" stroke="#d9dee3"/>
-    <text x="1030" y="314">Next</text>
-    <rect x="990" y="400" width="150" height="70" rx="12" fill="#fff" stroke="#d9dee3"/>
-    <text x="1024" y="444">Socket</text>
+    <rect x="545" y="158" width="160" height="64" rx="12" fill="#ffffff" stroke="#d9dee3"/>
+    <text x="586" y="198">Mutation</text>
+
+    <rect x="780" y="278" width="180" height="64" rx="12" fill="#ffffff" stroke="#d9dee3"/>
+    <text x="838" y="318">Targets</text>
+
+    <rect x="1020" y="116" width="130" height="64" rx="12" fill="#ffffff" stroke="#d9dee3"/>
+    <text x="1061" y="156">Redis</text>
+
+    <rect x="1020" y="244" width="130" height="64" rx="12" fill="#ffffff" stroke="#d9dee3"/>
+    <text x="1061" y="284">Next</text>
+
+    <rect x="1020" y="372" width="130" height="64" rx="12" fill="#ffffff" stroke="#d9dee3"/>
+    <text x="1054" y="412">Socket</text>
+
+    <rect x="1040" y="480" width="120" height="64" rx="12" fill="#ffffff" stroke="#d9dee3"/>
+    <text x="1070" y="520">Search</text>
   </g>
 </svg>

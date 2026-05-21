@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/stalezero/stalezero/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/stalezero/stalezero/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://www.npmjs.com/package/stalezero"><img alt="npm" src="https://img.shields.io/npm/v/stalezero.svg"></a>
+  <a href="https://github.com/KirtiRamchandani/StaleZero/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/KirtiRamchandani/StaleZero/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <img alt="Release candidate" src="https://img.shields.io/badge/release-RC_ready-2563eb">
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <img alt="ESM" src="https://img.shields.io/badge/modules-ESM-black">
   <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-339933">
