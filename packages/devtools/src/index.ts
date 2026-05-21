@@ -313,7 +313,7 @@ function renderDevtoolsHtml(snapshot: DevtoolsSnapshot, productionWarning: boole
       <table>
         <thead><tr><th>Mutation</th><th>Status</th><th>Duration</th><th>Time</th></tr></thead>
         <tbody>
-          ${snapshot.timeline.map((item) => `<tr data-mutation="${escapeHtml(item.mutation)}"><td><a href="./mutation/${encodeURIComponent(item.mutation)}"><code>${escapeHtml(item.mutation)}</code></a></td><td class="${escapeHtml(item.status)}">${escapeHtml(item.status)}</td><td>${item.durationMs}ms</td><td>${new Date(item.timestamp).toLocaleString()}</td></tr>`).join("")}
+          ${snapshot.timeline.map((item) => `<tr data-mutation="${escapeHtml(item.mutation)}"><td><a href="./mutation/${encodeURIComponent(item.mutation)}"><code>${escapeHtml(item.mutation)}</code></a></td><td class="${escapeHtml(item.status)}">${escapeHtml(item.status)}</td><td>${item.durationMs}ms</td><td>${new Date(item.timestamp).toISOString()}</td></tr>`).join("")}
         </tbody>
       </table>
       <h2>Adapter Results</h2>
