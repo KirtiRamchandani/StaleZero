@@ -5,7 +5,8 @@
 </p>
 
 <p align="center">
-  <strong>Your mutation has a blast radius. StaleZero shows it, runs it, and gives you the receipt.</strong>
+  <strong>Ship mutations that explain themselves.</strong><br />
+  Preview the blast radius, run the consequences, prove the result, and keep the receipt.
 </p>
 
 <p align="center">
@@ -21,6 +22,7 @@
   <a href="#why-this-exists">Why</a> /
   <a href="#what-ships-now">What ships now</a> /
   <a href="#target-helper-catalog">Target helpers</a> /
+  <a href="#operations-layer">Operations layer</a> /
   <a href="#mutation-cockpit">Mutation cockpit</a> /
   <a href="#security-boundaries">Security</a> /
   <a href="#release-ready">Release ready</a>
@@ -32,7 +34,7 @@
 
 ## One Line
 
-StaleZero is a mutation consequence engine: one named data change can clear Redis, invalidate React Query, revalidate SWR and Next, update Redux or Zustand, notify sockets, enqueue search, publish events, and leave a receipt.
+StaleZero is a mutation consequence engine: one named data change can clear Redis, invalidate React Query, revalidate SWR and Next, update Redux or Zustand, notify sockets, enqueue search, publish events, prove what happened, and leave a receipt.
 
 ```ts
 await stale.changed("ProductPriceChanged", { productId: "p1" });
@@ -62,6 +64,7 @@ Duration: 9ms
 - **Release candidate hardening:** clean-clone checks, npm pack checks, consumer smoke tests, CLI smoke tests, examples, benchmarks, provenance dry-run.
 - **Production target surface:** 52 target helpers for browsers, edge cache, CDNs, data stores, queues, storage, product domains, workflow steps, and observability.
 - **Cockpit layer:** Mutation Studio, snapshots, diff action, replay lab, contracts, recipes, compiler, batching, coalescing, SLOs, inbox, workflows, packs, and security gates.
+- **Operations layer:** flows, undo, time machine, drift scans, impact scores, playbooks, owners, service contracts, schema registry, proofs, canaries, incident export, target replay, live watch, docs-as-code, migration scans, duplicate work scans, and cost reports.
 
 ## Quick Start
 
@@ -149,6 +152,50 @@ await stale
   .socket(`user:${userId}`, "user.changed")
   .run({ consistency: "strict" });
 ```
+
+## Operations Layer
+
+The newest StaleZero surface handles the part teams usually debug during incidents: safe mutation journeys, reversible operations, drift, ownership, contracts, and proof.
+
+```ts
+await stale
+  .flow("CancelOrder", { orderId })
+  .step("refund-payment", refundPayment, { retry: 2, timeoutMs: 5000 })
+  .parallel("cleanup", [
+    { name: "return-inventory", run: returnInventory },
+    { name: "send-email", run: sendEmail, options: { optional: true } }
+  ])
+  .changed("OrderCancelled")
+  .run();
+```
+
+```ts
+stale.undoable("UserRoleChanged", {
+  windowMs: 30 * 60_000,
+  authorize: ({ actor }) => actor?.role === "admin",
+  undo: async ({ input }) => restorePreviousRole(input)
+});
+
+const receipt = await stale.changed("UserUpdated", input, { prove: true });
+const drift = await stale.drift.scan("User", input.userId);
+const impact = await stale.impact("TenantDeleted", input);
+```
+
+| Feature | What it gives you |
+| --- | --- |
+| Flows | Ordered, parallel, optional, retryable, compensating mutation steps. |
+| Undo | Preview and run reversible mutation actions with safe dependent invalidations. |
+| Time Machine | Search receipts, compare old receipts to the current graph, export incidents. |
+| Drift Detector | Probe whether real targets match the mutation graph expectation. |
+| Impact Score | Score mutation risk before execution. |
+| Playbooks | Deterministic recovery steps for failed adapters and targets. |
+| Owners | Owners in manifests, receipts, diagnostics, and generated CODEOWNERS lines. |
+| Service Contracts | Producer and consumer schema checks for mutation events. |
+| Schema Registry | Versioned local schemas, diffs, docs, and compatibility matrix. |
+| State Proofs | Adapter `verify()` hooks that prove required systems reacted. |
+| Canary Mutations | Dry-run readiness checks before production use. |
+| Target Replay | Replay failed, safe, required, adapter-only, or exact targets. |
+| Cost Meter | Estimate mutation target cost and external call pressure. |
 
 ## Why This Exists
 
@@ -447,6 +494,7 @@ stalezero test-contracts
 | Recipe-to-Code Generator | `stalezero generate product-catalog`. |
 | Mutation Documentation Generator | `stalezero docs` writes mutation markdown and graph HTML. |
 | Developer Black Box Recorder | `stale.blackbox()` records safe mutation context, preview, receipt, timing, failures, and trace ID. |
+| Operations Layer | Flows, undo, time machine, drift scans, proofs, canaries, playbooks, incidents, target replay, IDE diagnostics, and cost reports. |
 </details>
 
 ## Security Boundaries
@@ -542,6 +590,7 @@ Manifest loading: measured as table lookup path
 - [Graph mode](docs/graph-mode.md)
 - [Devtools](docs/devtools.md)
 - [Mutation Studio](docs/mutation-studio.md)
+- [Operations layer](docs/operations-layer.md)
 - [Target helper catalog](docs/target-helper-catalog.md)
 - [Snapshots, replay, and contracts](docs/snapshots-replay-contracts.md)
 - [Recipes and packs](docs/recipes-packs.md)

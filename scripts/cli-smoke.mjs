@@ -50,6 +50,30 @@ await writeFile(
   join(temp, ".stalezero", "contracts.json"),
   `${JSON.stringify({ UserUpdated: { input: { userId: "123" }, invalidates: ["manifest:ReactQueryUser"] } }, null, 2)}\n`
 );
+await writeFile(
+  join(temp, ".stalezero", "service-contracts.json"),
+  `${JSON.stringify(
+    {
+      emits: [{ service: "users", event: "UserUpdated", schema: { fields: { userId: "string" }, required: ["userId"] } }],
+      consumes: [{ service: "dashboard", event: "UserUpdated", schema: { fields: { userId: "string" }, required: ["userId"] } }]
+    },
+    null,
+    2
+  )}\n`
+);
+await writeFile(
+  join(temp, ".stalezero", "schemas.json"),
+  `${JSON.stringify({ UserUpdated: { version: "1", fields: { userId: "string" }, required: ["userId"] } }, null, 2)}\n`
+);
+await mkdir(join(temp, "src"), { recursive: true });
+await writeFile(
+  join(temp, "src", "user.ts"),
+  [
+    "queryClient.invalidateQueries(['user', id]);",
+    "redis.del(`user:${id}`);",
+    "revalidateTag(`user:${id}`);"
+  ].join("\n")
+);
 
 for (const args of [
   ["preview", "UserUpdated", "--userId=123", "--teamId=456"],
@@ -64,6 +88,19 @@ for (const args of [
   ["why", "ReactQueryUser"],
   ["receipt", "sample"],
   ["replay", "sample", "--sandbox"],
+  ["replay", "sample", "--target=query:invalidate:[\"user\",\"123\"]"],
+  ["undo", "sample"],
+  ["playbook", "sample"],
+  ["incident", "sample"],
+  ["canary", "UserUpdated", "--userId=123"],
+  ["drift", "User", "123"],
+  ["contract-check"],
+  ["schema", "check"],
+  ["cost", "UserUpdated", "--userId=123"],
+  ["watch", "--once"],
+  ["scan", "src"],
+  ["scan", "duplicates", "src"],
+  ["diagnostics"],
   ["generate", "product-catalog"],
   ["devtools", "--once"],
   ["doctor"],

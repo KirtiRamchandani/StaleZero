@@ -36,6 +36,9 @@ export type TargetRef<
   label?: string;
   group?: string;
   lane?: string;
+  owner?: string;
+  idempotent?: boolean;
+  cost?: number;
 };
 
 export type MutationContext<Input = unknown> = {
@@ -54,6 +57,7 @@ export type MutationContext<Input = unknown> = {
 export type Adapter<Target extends TargetRef = TargetRef> = {
   name: string;
   execute: (target: Target, context: MutationContext) => MaybePromise<void>;
+  verify?: (target: Target, context: MutationContext) => MaybePromise<boolean | string | { ok: boolean; message?: string }>;
   batchExecute?: (targets: Target[], context: MutationContext) => MaybePromise<void>;
   health?: () => MaybePromise<"ok" | { status: string; details?: unknown }>;
   shutdown?: () => MaybePromise<void>;
@@ -86,6 +90,55 @@ export type ExecutionResult = {
 
 export type ReceiptStatus = "success" | "partial" | "failed" | "dry-run";
 
+export type StateProof = {
+  adapter: string;
+  key: string;
+  action: TargetAction;
+  status: "passed" | "failed" | "skipped";
+  durationMs: number;
+  target: TargetRef;
+  message?: string;
+  error?: {
+    name: string;
+    message: string;
+    stack?: string;
+  };
+};
+
+export type FlowStepReceipt = {
+  id: string;
+  name: string;
+  status: "success" | "failed" | "skipped";
+  durationMs: number;
+  attempts: number;
+  optional?: boolean;
+  parallel?: string;
+  error?: string;
+};
+
+export type FlowReceipt = {
+  id: string;
+  name: string;
+  status: "success" | "failed";
+  steps: FlowStepReceipt[];
+};
+
+export type UndoReceiptInfo = {
+  originalReceiptId: string;
+  status: "preview" | "success" | "failed" | "blocked";
+  reason?: string;
+  approver?: string;
+};
+
+export type CostReport = {
+  level: "low" | "medium" | "high";
+  score: number;
+  targets: number;
+  adapterCalls: Record<string, number>;
+  estimatedExternalCalls: number;
+  reasons: string[];
+};
+
 export type Receipt = {
   id: string;
   mutation: string;
@@ -98,8 +151,13 @@ export type Receipt = {
   timestamp: number;
   app?: string;
   traceId?: string;
+  owner?: string;
   risk?: RiskResult;
   slo?: SloEvaluation;
+  proofs?: StateProof[];
+  flow?: FlowReceipt;
+  undo?: UndoReceiptInfo;
+  cost?: CostReport;
   approval?: {
     required: boolean;
     granted: boolean;
@@ -139,6 +197,7 @@ export type MutationDefinition<Input = unknown> = {
   affects?: (input: Input) => MaybePromise<EntityRef[]>;
   targets?: (input: Input, context: MutationContext<Input>) => MaybePromise<TargetRef[]>;
   source?: string;
+  owner?: string;
 };
 
 export type MirrorDefinition<Input = unknown> = {
@@ -146,6 +205,7 @@ export type MirrorDefinition<Input = unknown> = {
   target: (input: Input, context: MutationContext<Input>) => MaybePromise<TargetRef | TargetRef[] | undefined | null>;
   dependsOn?: (input: Input, context: MutationContext<Input>) => MaybePromise<EntityRef[]>;
   description?: string;
+  owner?: string;
 };
 
 export type CommandDefinition<Input = unknown, Output = unknown> = {
@@ -166,6 +226,8 @@ export type ChangedOptions = {
   idempotencyKey?: string;
   actor?: unknown;
   approvalToken?: string;
+  prove?: boolean;
+  proofTimeoutMs?: number;
 };
 
 export type Preview = {
@@ -288,6 +350,17 @@ export type SnapshotDiff = SnapshotDiffData & {
 };
 
 export type ReplayMode = "sandbox" | "dry-run" | "safe-replay" | "force";
+
+export type ReplayOptions = {
+  mode?: ReplayMode;
+  consistency?: ConsistencyMode;
+  target?: string;
+  adapter?: string;
+  failedOnly?: boolean;
+  requiredOnly?: boolean;
+  safeOnly?: boolean;
+  currentGraph?: boolean;
+};
 
 export type ReplayResult = {
   mode: ReplayMode;
@@ -424,6 +497,179 @@ export type WorkflowStepRunner = <T>(
   options?: { idempotencyKey?: string; skip?: boolean; compensate?: () => MaybePromise<void> }
 ) => Promise<T | undefined>;
 
+export type FlowStepOptions = {
+  optional?: boolean;
+  retry?: number;
+  timeoutMs?: number;
+  idempotencyKey?: string;
+  skipIfCompleted?: boolean;
+  compensate?: () => MaybePromise<void>;
+};
+
+export type FlowResult = {
+  id: string;
+  name: string;
+  status: "success" | "failed";
+  steps: FlowStepReceipt[];
+  receipt?: Receipt;
+  toJSON: () => {
+    id: string;
+    name: string;
+    status: "success" | "failed";
+    steps: FlowStepReceipt[];
+    receipt?: ReceiptSnapshot;
+  };
+  toText: () => string;
+};
+
+export type UndoableDefinition<Input = unknown> = {
+  do?: (args: { input: Input; context: { traceId?: string; source?: string; actor?: unknown } }) => MaybePromise<void>;
+  undo: (args: { input: Input; receipt: Receipt; actor?: unknown }) => MaybePromise<void>;
+  changed?: string;
+  windowMs?: number;
+  authorize?: (args: { actor?: unknown; receipt: Receipt }) => MaybePromise<boolean>;
+  targets?: (args: { receipt: Receipt; input: Input }) => MaybePromise<TargetRef[]>;
+};
+
+export type UndoPreview = {
+  receiptId: string;
+  mutation: string;
+  allowed: boolean;
+  reasons: string[];
+  targets: TargetRef[];
+  toText: () => string;
+};
+
+export type UndoResult = {
+  receiptId: string;
+  mutation: string;
+  status: "success" | "failed" | "blocked";
+  preview: UndoPreview;
+  receipt?: Receipt;
+  toText: () => string;
+};
+
+export type TimeMachineSearchOptions = {
+  limit?: number;
+  mutation?: string;
+  entity?: string;
+  target?: string;
+  adapter?: string;
+  actor?: string;
+};
+
+export type TimeMachineApi = {
+  timeline: (options?: { limit?: number; mutation?: string }) => Promise<Receipt[]>;
+  search: (options: TimeMachineSearchOptions) => Promise<Receipt[]>;
+  compareReceiptToGraph: (receipt: string | Receipt) => Promise<SnapshotDiff>;
+  incident: (receipt: string | Receipt) => Promise<string>;
+};
+
+export type DriftFinding = {
+  target: TargetRef;
+  status: "ok" | "drift";
+  message: string;
+  lastReceiptId?: string;
+};
+
+export type DriftReport = {
+  entity: EntityRef;
+  status: "ok" | "drift";
+  findings: DriftFinding[];
+  lastReceipt?: Receipt;
+  toText: () => string;
+};
+
+export type DriftProbe = {
+  adapter: string;
+  check: (args: { target: TargetRef; entity: EntityRef; lastReceipt?: Receipt }) => MaybePromise<boolean | string | { ok: boolean; message?: string }>;
+};
+
+export type DriftApi = {
+  use: (probe: DriftProbe) => DriftApi;
+  scan: (type: string, id: string) => Promise<DriftReport>;
+  schedule: (type: string, id: string, intervalMs: number, handler?: (report: DriftReport) => MaybePromise<void>) => () => void;
+};
+
+export type Playbook = {
+  receiptId: string;
+  mutation: string;
+  owner?: string;
+  steps: string[];
+  toText: () => string;
+};
+
+export type ServiceContractSchema = {
+  version?: string;
+  fields?: Record<string, string>;
+  required?: string[];
+};
+
+export type ServiceContract = {
+  service: string;
+  event: string;
+  schema: ServiceContractSchema;
+};
+
+export type ServiceContractReport = {
+  passed: boolean;
+  failures: string[];
+  emits: ServiceContract[];
+  consumes: ServiceContract[];
+  toText: () => string;
+};
+
+export type SchemaDiff = {
+  event: string;
+  from?: ServiceContractSchema;
+  to?: ServiceContractSchema;
+  breaking: boolean;
+  changes: string[];
+  toText: () => string;
+};
+
+export type SchemaRegistryApi = {
+  register: (event: string, schema: ServiceContractSchema) => SchemaRegistryApi;
+  diff: (event: string, next?: ServiceContractSchema) => SchemaDiff;
+  check: () => ServiceContractReport;
+  docs: () => string;
+  matrix: () => Array<{ event: string; producers: string[]; consumers: string[]; status: "compatible" | "mismatch" }>;
+};
+
+export type CanaryResult = {
+  mutation: string;
+  receipt: Receipt;
+  readinessScore: number;
+  warnings: string[];
+  toText: () => string;
+};
+
+export type MarketplaceEntry = {
+  name: string;
+  kind: "adapter" | "pack" | "bus" | "template";
+  stability: "stable" | "beta" | "experimental";
+  verified: boolean;
+  securityScore: number;
+  compatibility: string[];
+};
+
+export type Diagnostic = {
+  code: string;
+  severity: "info" | "warning" | "error";
+  message: string;
+  subject?: string;
+};
+
+export type ScanResult = {
+  kind: "migration" | "duplicates";
+  findings: Array<{
+    file: string;
+    line?: number;
+    pattern: string;
+    suggestion?: string;
+  }>;
+};
+
 export type BlackboxConfig = {
   enabled?: boolean;
   retainLast?: number;
@@ -512,8 +758,8 @@ export type Manifest = {
   app?: string;
   environment?: string;
   sources?: string[];
-  mutations: Record<string, { source?: string; mirrors: string[] }>;
-  mirrors: Record<string, { when: string[]; description?: string }>;
+  mutations: Record<string, { source?: string; owner?: string; mirrors: string[] }>;
+  mirrors: Record<string, { when: string[]; description?: string; owner?: string }>;
   adapters: string[];
   generatedAt: string;
 };

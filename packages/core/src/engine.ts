@@ -24,19 +24,30 @@ import type {
   AuditEvent,
   BlackboxConfig,
   BlackboxEntry,
+  CanaryResult,
   ChangedOptions,
   CommandDefinition,
   CompiledManifest,
   ConsistencyMode,
   CoalesceConfig,
+  CostReport,
+  Diagnostic,
+  DriftApi,
+  DriftFinding,
+  DriftProbe,
+  DriftReport,
   EntityRef,
   EventBus,
   ExecutionResult,
   ExecutionStatus,
+  FlowResult,
+  FlowStepOptions,
+  FlowStepReceipt,
   InboxApi,
   InboxConfig,
   Manifest,
   MaybePromise,
+  MarketplaceEntry,
   MirrorDefinition,
   MutationContract,
   MutationContractResult,
@@ -44,13 +55,14 @@ import type {
   MutationDefinition,
   MutationSnapshot,
   MutationSnapshotData,
+  Playbook,
   Preview,
   RateLimitConfig,
   Receipt,
   ReceiptStore,
   RecipeInstaller,
   RedactionOptions,
-  ReplayMode,
+  ReplayOptions,
   ReplayResult,
   ResourceDefinition,
   RiskConfig,
@@ -58,10 +70,14 @@ import type {
   RiskResult,
   SandboxConfig,
   SchemaLike,
+  SchemaRegistryApi,
   SecurityConfig,
+  ServiceContract,
+  ServiceContractReport,
   SloConfig,
   SloEvaluation,
   SnapshotDiff,
+  StateProof,
   StudioApi,
   StudioOptions,
   StaleEvent,
@@ -70,6 +86,10 @@ import type {
   TenantConfig,
   TargetAction,
   TargetRef,
+  TimeMachineApi,
+  UndoPreview,
+  UndoResult,
+  UndoableDefinition,
   WorkflowResult,
   WorkflowStep,
   WorkflowStepRunner,
@@ -164,8 +184,38 @@ export interface StaleZero<Mutations extends MutationMap = {}> {
     input: Name extends keyof Mutations ? Mutations[Name] : unknown
   ): Promise<MutationSnapshot>;
   compareSnapshots(left: MutationSnapshot | MutationSnapshotData, right: MutationSnapshot | MutationSnapshotData): Promise<SnapshotDiff>;
-  replay(receipt: string | Receipt, options?: { mode?: ReplayMode; consistency?: ConsistencyMode }): Promise<ReplayResult>;
+  replay(receipt: string | Receipt, options?: ReplayOptions): Promise<ReplayResult>;
   contract(name: string, definition: MutationContract): Promise<MutationContractResult>;
+  flow<const Name extends string>(
+    name: Name,
+    input: Name extends keyof Mutations ? Mutations[Name] : unknown
+  ): StaleZeroFlowBuilder;
+  undoable<Input = unknown>(name: string, definition: UndoableDefinition<Input>): this;
+  previewUndo(receipt: string | Receipt, options?: { actor?: unknown }): Promise<UndoPreview>;
+  undo(receipt: string | Receipt, options?: { actor?: unknown; approvalToken?: string; consistency?: ConsistencyMode }): Promise<UndoResult>;
+  timeMachine(): TimeMachineApi;
+  readonly drift: DriftApi;
+  impact<const Name extends string>(
+    name: Name,
+    input: Name extends keyof Mutations ? Mutations[Name] : unknown
+  ): Promise<RiskResult>;
+  playbook(receipt: string | Receipt): Promise<Playbook>;
+  emits(event: string, schema: ServiceContract["schema"], options?: { service?: string }): this;
+  consumes(event: string, schema: ServiceContract["schema"], options?: { service?: string }): this;
+  contractCheck(): ServiceContractReport;
+  schemaRegistry(): SchemaRegistryApi;
+  canary<const Name extends string>(
+    name: Name,
+    input: Name extends keyof Mutations ? Mutations[Name] : unknown
+  ): Promise<CanaryResult>;
+  marketplace(): MarketplaceEntry[];
+  incident(receipt: string | Receipt): Promise<string>;
+  cost<const Name extends string>(
+    name: Name,
+    input: Name extends keyof Mutations ? Mutations[Name] : unknown
+  ): Promise<CostReport>;
+  diagnostics(): Diagnostic[];
+  codeowners(): string;
   why(targetName: string, input?: unknown): Promise<WhyResult>;
   receipt(id: string): Promise<Receipt | undefined>;
   exportReceipts(options?: { mutation?: string }): Promise<Receipt[]>;
@@ -300,6 +350,184 @@ export class QuickMutationBuilder {
   }
 }
 
+type FlowStepDefinition = {
+  name: string;
+  run: (input: unknown) => MaybePromise<unknown>;
+  options?: FlowStepOptions;
+  parallel?: string;
+};
+
+export class StaleZeroFlowBuilder {
+  readonly #engine: StaleZeroEngine;
+  readonly #name: string;
+  readonly #input: unknown;
+  readonly #steps: FlowStepDefinition[] = [];
+  readonly #completed = new Set<string>();
+  #changedMutation?: string;
+
+  constructor(engine: StaleZeroEngine, name: string, input: unknown) {
+    this.#engine = engine;
+    this.#name = name;
+    this.#input = input;
+  }
+
+  step(name: string, run: (input: unknown) => MaybePromise<unknown>, options: FlowStepOptions = {}): this {
+    this.#steps.push({ name, run, options });
+    return this;
+  }
+
+  optional(name: string, run: (input: unknown) => MaybePromise<unknown>, options: FlowStepOptions = {}): this {
+    return this.step(name, run, { ...options, optional: true });
+  }
+
+  parallel(
+    name: string,
+    steps: Array<{ name: string; run: (input: unknown) => MaybePromise<unknown>; options?: FlowStepOptions }>
+  ): this {
+    for (const step of steps) {
+      this.#steps.push({ name: step.name, run: step.run, options: step.options, parallel: name });
+    }
+    return this;
+  }
+
+  changed(name = this.#name): this {
+    this.#changedMutation = name;
+    return this;
+  }
+
+  async run(options: ChangedOptions = {}): Promise<FlowResult> {
+    const id = options.idempotencyKey ?? createId("flow");
+    const receipts: FlowStepReceipt[] = [];
+    let failed = false;
+
+    const groups = new Map<string, FlowStepDefinition[]>();
+    for (const step of this.#steps) {
+      const group = step.parallel ?? `step:${step.name}:${receipts.length}`;
+      groups.set(group, [...(groups.get(group) ?? []), step]);
+    }
+
+    for (const [group, steps] of groups) {
+      if (steps.length > 1 || !group.startsWith("step:")) {
+        const parallelResults = await Promise.all(steps.map((step) => this.#runStep(id, step)));
+        receipts.push(...parallelResults);
+        failed ||= parallelResults.some((step) => step.status === "failed");
+      } else {
+        const only = steps[0];
+        if (only) {
+          const result = await this.#runStep(id, only);
+          receipts.push(result);
+          failed ||= result.status === "failed";
+        }
+      }
+      if (failed) {
+        break;
+      }
+    }
+
+    const status = failed ? "failed" : "success";
+    const flow = { id, name: this.#name, status, steps: receipts };
+    const receipt =
+      !failed && this.#changedMutation
+        ? await this.#engine.execute({
+            mutation: this.#changedMutation,
+            input: this.#input,
+            options: {
+              ...options,
+              idempotencyKey: `${id}:changed`,
+              source: options.source ?? "flow"
+            }
+          })
+        : undefined;
+
+    if (receipt) {
+      Object.assign(receipt, { flow });
+    }
+
+    return {
+      id,
+      name: this.#name,
+      status,
+      steps: receipts,
+      receipt,
+      toJSON: () => ({
+        id,
+        name: this.#name,
+        status,
+        steps: [...receipts],
+        receipt: receipt?.toJSON()
+      }),
+      toText: () =>
+        [
+          `Flow: ${this.#name}`,
+          "",
+          ...receipts.map((step) => `- ${step.status} ${step.name} (${step.durationMs}ms)`),
+          "",
+          `Status: ${status}`
+        ].join("\n")
+    };
+  }
+
+  async #runStep(flowId: string, step: FlowStepDefinition): Promise<FlowStepReceipt> {
+    const id = step.options?.idempotencyKey ?? `${flowId}:${step.name}`;
+    if (step.options?.skipIfCompleted && this.#completed.has(id)) {
+      return { id, name: step.name, status: "skipped", durationMs: 0, attempts: 0, optional: step.options.optional, parallel: step.parallel };
+    }
+
+    const maxAttempts = Math.max(1, (step.options?.retry ?? 0) + 1);
+    const started = now();
+    let attempts = 0;
+    let lastError: unknown;
+
+    while (attempts < maxAttempts) {
+      attempts += 1;
+      try {
+        const task = () => step.run(this.#input);
+        if (step.options?.timeoutMs) {
+          await withTimeout(task, step.options.timeoutMs, `flow step ${step.name}`);
+        } else {
+          await task();
+        }
+        this.#completed.add(id);
+        return {
+          id,
+          name: step.name,
+          status: "success",
+          durationMs: now() - started,
+          attempts,
+          optional: step.options?.optional,
+          parallel: step.parallel
+        };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    await step.options?.compensate?.();
+    if (step.options?.optional) {
+      return {
+        id,
+        name: step.name,
+        status: "skipped",
+        durationMs: now() - started,
+        attempts,
+        optional: true,
+        parallel: step.parallel,
+        error: serializeError(lastError).message
+      };
+    }
+    return {
+      id,
+      name: step.name,
+      status: "failed",
+      durationMs: now() - started,
+      attempts,
+      optional: step.options?.optional,
+      parallel: step.parallel,
+      error: serializeError(lastError).message
+    };
+  }
+}
+
 export class StaleZeroEngine {
   readonly #config: ResolvedConfig;
   readonly #adapters = new Map<string, Adapter>();
@@ -319,6 +547,11 @@ export class StaleZeroEngine {
   readonly #approvalGates = new Map<string, ApprovalConfig>();
   readonly #rateLimitConfigs = new Map<string, RateLimitConfig>();
   readonly #sandboxConfigs = new Map<string, SandboxConfig>();
+  readonly #undoables = new Map<string, UndoableDefinition>();
+  readonly #emittedContracts: ServiceContract[] = [];
+  readonly #consumedContracts: ServiceContract[] = [];
+  readonly #schemaVersions = new Map<string, ServiceContract["schema"]>();
+  readonly #driftProbes: DriftProbe[] = [];
   readonly #blackboxLog: BlackboxEntry[] = [];
   #receiptStore: ReceiptStore = new MemoryReceiptStore();
   #manifest?: Manifest;
@@ -328,6 +561,19 @@ export class StaleZeroEngine {
   #tenantConfig?: TenantConfig;
   #riskConfig?: RiskConfig;
   #blackboxConfig: BlackboxConfig = { enabled: false, retainLast: 1000, redact: true };
+  readonly drift: DriftApi = {
+    use: (probe) => {
+      this.#driftProbes.push(probe);
+      return this.drift;
+    },
+    scan: (type, id) => this.#scanDrift(type, id),
+    schedule: (type, id, intervalMs, handler) => {
+      const timer = setInterval(() => {
+        void this.#scanDrift(type, id).then((report) => handler?.(report));
+      }, intervalMs);
+      return () => clearInterval(timer);
+    }
+  };
 
   readonly receipts: ReceiptsApi = {
     list: async (options) => this.#receiptStore.list(options),
@@ -520,16 +766,40 @@ export class StaleZeroEngine {
     };
   }
 
-  async replay(receiptOrId: string | Receipt, options: { mode?: ReplayMode; consistency?: ConsistencyMode } = {}): Promise<ReplayResult> {
+  async replay(receiptOrId: string | Receipt, options: ReplayOptions = {}): Promise<ReplayResult> {
     const original = typeof receiptOrId === "string" ? await this.receipt(receiptOrId) : receiptOrId;
     if (!original) {
       throw new Error(`No receipt found for replay`);
     }
 
     const mode = options.mode ?? "sandbox";
-    const safeTargets = original.targets.filter(isSafeReplayTarget);
-    const executable = mode === "force" ? original.targets : mode === "safe-replay" ? safeTargets : [];
-    const skipped = original.targets.filter((targetRef) => !executable.includes(targetRef));
+    const failedTargets = new Set(
+      original.results.filter((result) => result.status === "failed").map((result) => targetSignature(result.target))
+    );
+    const currentTargets = options.currentGraph
+      ? (await this.preview(original.mutation, original.input)).targets
+      : original.targets;
+    const filteredTargets = currentTargets.filter((targetRef) => {
+      if (options.target && targetRef.key !== options.target && targetSignature(targetRef) !== options.target && targetRef.label !== options.target) {
+        return false;
+      }
+      if (options.adapter && targetRef.adapter !== options.adapter) {
+        return false;
+      }
+      if (options.failedOnly && !failedTargets.has(targetSignature(targetRef))) {
+        return false;
+      }
+      if (options.requiredOnly && targetRef.required === false) {
+        return false;
+      }
+      if (options.safeOnly && !isSafeReplayTarget(targetRef)) {
+        return false;
+      }
+      return true;
+    });
+    const safeTargets = filteredTargets.filter(isSafeReplayTarget);
+    const executable = mode === "force" ? filteredTargets : mode === "safe-replay" ? safeTargets : [];
+    const skipped = currentTargets.filter((targetRef) => !executable.includes(targetRef));
     const receipt =
       mode === "sandbox" || mode === "dry-run"
         ? createReceipt({
@@ -537,8 +807,8 @@ export class StaleZeroEngine {
             mutation: original.mutation,
             payload: this.#redact(original.input),
             affected: original.affected,
-            targets: original.targets,
-            results: original.targets.map((targetRef) => this.#result(targetRef, "skipped", 0, 0, undefined, "replay sandbox")),
+            targets: filteredTargets,
+            results: filteredTargets.map((targetRef) => this.#result(targetRef, "skipped", 0, 0, undefined, "replay sandbox")),
             status: "dry-run",
             durationMs: 0,
             timestamp: now(),
@@ -563,8 +833,8 @@ export class StaleZeroEngine {
           `Replay: ${original.mutation}`,
           "",
           executable.length ? "Executed:" : "Would execute:",
-          ...(original.targets.length
-            ? original.targets.map((targetRef) => `- ${targetRef.adapter} ${targetRef.key} ${targetRef.action}`)
+          ...(filteredTargets.length
+            ? filteredTargets.map((targetRef) => `- ${targetRef.adapter} ${targetRef.key} ${targetRef.action}`)
             : ["- no targets"]),
           "",
           "Skipped:",
@@ -603,6 +873,311 @@ export class StaleZeroEngine {
     }
 
     return { mutation: name, passed: failures.length === 0, failures };
+  }
+
+  flow(name: string, input: unknown): StaleZeroFlowBuilder {
+    return new StaleZeroFlowBuilder(this, name, input);
+  }
+
+  undoable<Input = unknown>(name: string, definition: UndoableDefinition<Input>): this {
+    this.#undoables.set(name, definition as UndoableDefinition);
+    return this;
+  }
+
+  async previewUndo(receiptOrId: string | Receipt, options: { actor?: unknown } = {}): Promise<UndoPreview> {
+    const receipt = await this.#resolveReceipt(receiptOrId);
+    const definition = this.#undoables.get(receipt.mutation);
+    const reasons: string[] = [];
+    if (!definition) {
+      reasons.push(`No undo handler registered for ${receipt.mutation}`);
+    }
+    if (definition?.windowMs && now() - receipt.timestamp > definition.windowMs) {
+      reasons.push("Undo window has expired");
+    }
+    if (definition?.authorize && !(await definition.authorize({ actor: options.actor, receipt }))) {
+      reasons.push("Actor is not authorized to undo this mutation");
+    }
+    const targets = definition?.targets
+      ? await definition.targets({ receipt, input: receipt.input })
+      : receipt.targets.filter(isSafeReplayTarget).map((targetRef) => ({ ...targetRef, required: false }));
+    return {
+      receiptId: receipt.id,
+      mutation: receipt.mutation,
+      allowed: reasons.length === 0,
+      reasons,
+      targets,
+      toText: () =>
+        [
+          `Undo preview: ${receipt.mutation}`,
+          "",
+          reasons.length ? "Blocked:" : "Will undo:",
+          ...(reasons.length ? reasons.map((reason) => `- ${reason}`) : targets.map((targetRef) => `- ${targetRef.adapter} ${targetRef.key}`))
+        ].join("\n")
+    };
+  }
+
+  async undo(
+    receiptOrId: string | Receipt,
+    options: { actor?: unknown; approvalToken?: string; consistency?: ConsistencyMode } = {}
+  ): Promise<UndoResult> {
+    const receipt = await this.#resolveReceipt(receiptOrId);
+    const preview = await this.previewUndo(receipt, { actor: options.actor });
+    if (!preview.allowed) {
+      return {
+        receiptId: receipt.id,
+        mutation: receipt.mutation,
+        status: "blocked",
+        preview,
+        toText: () => [`Undo blocked: ${receipt.mutation}`, ...preview.reasons.map((reason) => `- ${reason}`)].join("\n")
+      };
+    }
+
+    try {
+      const definition = this.#undoables.get(receipt.mutation);
+      await definition?.undo({ input: receipt.input, receipt, actor: options.actor });
+      const undoReceipt = await this.execute({
+        mutation: definition?.changed ?? `${receipt.mutation}Undone`,
+        input: receipt.input,
+        explicitAffected: receipt.affected,
+        explicitTargets: preview.targets,
+        options: {
+          consistency: options.consistency,
+          source: "undo",
+          approvalToken: options.approvalToken,
+          idempotencyKey: createId("undo")
+        }
+      });
+      Object.assign(undoReceipt, {
+        undo: {
+          originalReceiptId: receipt.id,
+          status: "success",
+          approver: options.approvalToken
+        }
+      });
+      return {
+        receiptId: receipt.id,
+        mutation: receipt.mutation,
+        status: "success",
+        preview,
+        receipt: undoReceipt,
+        toText: () => [`Undo: ${receipt.mutation}`, "", `Status: success`, `Receipt: ${undoReceipt.id}`].join("\n")
+      };
+    } catch (error) {
+      return {
+        receiptId: receipt.id,
+        mutation: receipt.mutation,
+        status: "failed",
+        preview,
+        toText: () => [`Undo failed: ${receipt.mutation}`, serializeError(error).message].join("\n")
+      };
+    }
+  }
+
+  timeMachine(): TimeMachineApi {
+    return {
+      timeline: async (options) => this.#receiptStore.list(options),
+      search: async (options) => {
+        const receipts = await this.#receiptStore.list({ limit: options.limit ?? 1000, mutation: options.mutation });
+        return receipts.filter((receipt) => {
+          if (options.entity && !receipt.affected.some((ref) => `${ref.type}:${ref.id}`.includes(options.entity ?? ""))) {
+            return false;
+          }
+          if (options.target && !receipt.targets.some((targetRef) => `${targetRef.adapter}:${targetRef.key}`.includes(options.target ?? ""))) {
+            return false;
+          }
+          if (options.adapter && !receipt.targets.some((targetRef) => targetRef.adapter === options.adapter)) {
+            return false;
+          }
+          if (options.actor && JSON.stringify(receipt.input).includes(options.actor) === false) {
+            return false;
+          }
+          return true;
+        });
+      },
+      compareReceiptToGraph: async (receiptOrId) => {
+        const receipt = await this.#resolveReceipt(receiptOrId);
+        const current = await this.snapshot(receipt.mutation, receipt.input);
+        return this.compareSnapshots(
+          {
+            version: 1,
+            mutation: receipt.mutation,
+            input: receipt.input,
+            affected: receipt.affected,
+            targets: receipt.targets,
+            risk: receipt.risk ?? this.#assessRisk(receipt.mutation, receipt.input, receipt.targets),
+            createdAt: new Date(receipt.timestamp).toISOString()
+          },
+          current
+        );
+      },
+      incident: (receipt) => this.incident(receipt)
+    };
+  }
+
+  async impact(name: string, input: unknown): Promise<RiskResult> {
+    const preview = await this.preview(name, input);
+    return preview.risk ?? this.#assessRisk(name, preview.input, preview.targets);
+  }
+
+  async playbook(receiptOrId: string | Receipt): Promise<Playbook> {
+    const receipt = await this.#resolveReceipt(receiptOrId);
+    const failed = receipt.results.filter((result) => result.status === "failed");
+    const owner = receipt.owner ?? this.#mutations.get(receipt.mutation)?.owner;
+    const steps =
+      failed.length === 0
+        ? ["Review the receipt timeline", "Compare the receipt with the current graph", "Keep the receipt for the release record"]
+        : failed.flatMap((result) => [
+            `Check ${result.adapter} health`,
+            `Retry target ${result.adapter}:${result.key} in safe-replay mode`,
+            `Verify ${result.adapter}:${result.key} with drift scan`,
+            `Escalate to ${result.target.owner ?? owner ?? "the owning team"} if it fails again`
+          ]);
+    return {
+      receiptId: receipt.id,
+      mutation: receipt.mutation,
+      owner,
+      steps,
+      toText: () => [`Playbook: ${receipt.mutation}`, "", ...steps.map((step, index) => `${index + 1}. ${step}`)].join("\n")
+    };
+  }
+
+  emits(event: string, schema: ServiceContract["schema"], options: { service?: string } = {}): this {
+    const contract = { service: options.service ?? this.#config.app ?? "service", event, schema };
+    this.#emittedContracts.push(contract);
+    this.#schemaVersions.set(event, schema);
+    return this;
+  }
+
+  consumes(event: string, schema: ServiceContract["schema"], options: { service?: string } = {}): this {
+    const contract = { service: options.service ?? this.#config.app ?? "service", event, schema };
+    this.#consumedContracts.push(contract);
+    this.#schemaVersions.set(event, schema);
+    return this;
+  }
+
+  contractCheck(): ServiceContractReport {
+    return this.#contractReport();
+  }
+
+  schemaRegistry(): SchemaRegistryApi {
+    return {
+      register: (event, schema) => {
+        this.#schemaVersions.set(event, schema);
+        return this.schemaRegistry();
+      },
+      diff: (event, next) => schemaDiff(event, this.#schemaVersions.get(event), next),
+      check: () => this.#contractReport(),
+      docs: () => this.#schemaDocs(),
+      matrix: () => this.#schemaMatrix()
+    };
+  }
+
+  async canary(name: string, input: unknown): Promise<CanaryResult> {
+    const receipt = await this.changed(name, input, { dryRun: true, source: "canary", prove: true });
+    const warnings = [
+      ...(!this.#mutations.get(name)?.schema ? ["mutation has no schema"] : []),
+      ...receipt.targets.filter((targetRef) => targetRef.adapter === "http").map((targetRef) => `HTTP target ${targetRef.key} should be allowlisted`),
+      ...receipt.targets.filter((targetRef) => targetRef.key.includes("*")).map((targetRef) => `wildcard target ${targetRef.key} needs sandbox rules`)
+    ];
+    const readinessScore = Math.max(0, 100 - warnings.length * 15 - receipt.risk!.score / 2);
+    return {
+      mutation: name,
+      receipt,
+      readinessScore,
+      warnings,
+      toText: () =>
+        [
+          `Canary: ${name}`,
+          "",
+          `Readiness: ${Math.round(readinessScore)}/100`,
+          "",
+          "Warnings:",
+          ...(warnings.length ? warnings.map((warning) => `- ${warning}`) : ["- none"])
+        ].join("\n")
+    };
+  }
+
+  marketplace(): MarketplaceEntry[] {
+    return [
+      { name: "@stalezero/core", kind: "template", stability: "stable", verified: true, securityScore: 98, compatibility: ["node>=20", "esm"] },
+      { name: "@stalezero/pack-auth", kind: "pack", stability: "beta", verified: true, securityScore: 92, compatibility: ["core"] },
+      { name: "@stalezero/pack-commerce", kind: "pack", stability: "beta", verified: true, securityScore: 92, compatibility: ["core"] },
+      { name: "@stalezero/pack-saas", kind: "pack", stability: "beta", verified: true, securityScore: 91, compatibility: ["core"] },
+      { name: "@stalezero/adapter-redis", kind: "adapter", stability: "beta", verified: true, securityScore: 90, compatibility: ["redis"] },
+      { name: "@stalezero/adapter-http", kind: "adapter", stability: "beta", verified: true, securityScore: 88, compatibility: ["fetch"] },
+      { name: "@stalezero/bus-redis-streams", kind: "bus", stability: "experimental", verified: false, securityScore: 82, compatibility: ["redis"] }
+    ];
+  }
+
+  async incident(receiptOrId: string | Receipt): Promise<string> {
+    const receipt = await this.#resolveReceipt(receiptOrId);
+    const failed = receipt.results.filter((result) => result.status === "failed");
+    const playbook = await this.playbook(receipt);
+    return [
+      `# Incident: ${receipt.mutation} ${receipt.status}`,
+      "",
+      "## Summary",
+      failed.length
+        ? `${receipt.mutation} completed with ${failed.length} failed target${failed.length === 1 ? "" : "s"}.`
+        : `${receipt.mutation} completed without failed targets.`,
+      "",
+      "## Impact",
+      failed.length
+        ? failed.map((result) => `- ${result.adapter}:${result.key} may still be stale`).join("\n")
+        : "- No stale targets detected in the receipt.",
+      "",
+      "## Timeline",
+      `- ${new Date(receipt.timestamp).toISOString()} mutation started`,
+      ...receipt.results.map((result) => `- ${result.status} ${result.adapter}:${result.key} (${result.durationMs}ms)`),
+      "",
+      "## Recommended action",
+      ...playbook.steps.map((step) => `- ${step}`)
+    ].join("\n");
+  }
+
+  async cost(name: string, input: unknown): Promise<CostReport> {
+    const preview = await this.preview(name, input);
+    return estimateCost(preview.targets);
+  }
+
+  diagnostics(): Diagnostic[] {
+    const manifest = this.generateManifest();
+    const diagnostics: Diagnostic[] = [];
+    for (const [name, mutation] of Object.entries(manifest.mutations)) {
+      const definition = this.#mutations.get(name);
+      if (!definition?.owner) {
+        diagnostics.push({ code: "missing-owner", severity: "warning", message: `Mutation ${name} has no owner`, subject: name });
+      }
+      if (!definition?.schema) {
+        diagnostics.push({ code: "missing-schema", severity: "warning", message: `Mutation ${name} has no schema`, subject: name });
+      }
+      if (mutation.mirrors.length === 0) {
+        diagnostics.push({ code: "no-targets", severity: "info", message: `Mutation ${name} has no targets`, subject: name });
+      }
+    }
+    for (const [name, mirror] of Object.entries(manifest.mirrors)) {
+      if (mirror.when.length === 0) {
+        diagnostics.push({ code: "orphan-target", severity: "error", message: `Target ${name} is not connected to a mutation`, subject: name });
+      }
+    }
+    return diagnostics;
+  }
+
+  codeowners(): string {
+    const owners = new Map<string, string[]>();
+    for (const [name, definition] of this.#mutations) {
+      if (!definition.owner) {
+        continue;
+      }
+      owners.set(definition.owner, [...(owners.get(definition.owner) ?? []), name]);
+    }
+    const lines = ["# Generated from the StaleZero mutation owner map.", ""];
+    for (const [owner, mutations] of owners) {
+      for (const mutation of mutations) {
+        lines.push(`docs/mutations/${mutation}.md @${owner}`);
+      }
+    }
+    return `${lines.join("\n")}\n`;
   }
 
   async why(targetName: string, input: unknown = {}): Promise<WhyResult> {
@@ -1015,6 +1590,7 @@ export class StaleZeroEngine {
     for (const [name, definition] of this.#mutations) {
       mutations[name] = {
         source: definition.source,
+        owner: definition.owner,
         mirrors: [...this.#mirrors.values()]
           .filter((mirror) => asArray(mirror.definition.when).includes(name))
           .map((mirror) => mirror.name)
@@ -1025,7 +1601,8 @@ export class StaleZeroEngine {
     for (const [name, mirror] of this.#mirrors) {
       mirrors[name] = {
         when: asArray(mirror.definition.when),
-        description: mirror.definition.description
+        description: mirror.definition.description,
+        owner: mirror.definition.owner
       };
     }
 
@@ -1124,6 +1701,10 @@ export class StaleZeroEngine {
     const publishResult = await this.#publishIfNeeded(context, request.options, dryRun);
     const receiptTargets = publishResult ? [...orderedTargets, publishResult.target] : orderedTargets;
     const receiptResults = publishResult ? [...results, publishResult.result] : results;
+    const proofs =
+      request.options?.prove === true
+        ? await this.#proveTargets(receiptTargets, context, request.options.proofTimeoutMs)
+        : undefined;
     const status = dryRun ? "dry-run" : receiptStatus(receiptResults);
     const durationMs = now() - started;
     const slo = this.#evaluateSlo(mutation, receiptResults, durationMs);
@@ -1139,8 +1720,11 @@ export class StaleZeroEngine {
       timestamp: context.timestamp,
       app: this.#config.app,
       traceId: context.traceId,
+      owner: definition?.owner,
       risk,
       slo,
+      proofs,
+      cost: estimateCost(receiptTargets),
       approval
     });
 
@@ -1167,6 +1751,134 @@ export class StaleZeroEngine {
     }
 
     return receipt;
+  }
+
+  async #resolveReceipt(receiptOrId: string | Receipt): Promise<Receipt> {
+    const receipt = typeof receiptOrId === "string" ? await this.receipt(receiptOrId) : receiptOrId;
+    if (!receipt) {
+      throw new Error("No receipt found");
+    }
+    return receipt;
+  }
+
+  async #scanDrift(type: string, id: string): Promise<DriftReport> {
+    const entityRef = entity(type, id);
+    const receipts = await this.#receiptStore.list({ limit: 1000 });
+    const lastReceipt = receipts.find((receipt) => receipt.affected.some((ref) => ref.type === type && ref.id === id));
+    const targets = lastReceipt?.targets ?? [];
+    const findings: DriftFinding[] = [];
+
+    for (const targetRef of targets) {
+      const probe = this.#driftProbes.find((item) => item.adapter === targetRef.adapter);
+      if (!probe) {
+        findings.push({
+          target: targetRef,
+          status: "ok",
+          message: "No probe registered; receipt history is the source of truth",
+          lastReceiptId: lastReceipt?.id
+        });
+        continue;
+      }
+      try {
+        const result = await probe.check({ target: targetRef, entity: entityRef, lastReceipt });
+        const normalized =
+          typeof result === "object" && result !== null
+            ? result
+            : { ok: result === true, message: typeof result === "string" ? result : undefined };
+        findings.push({
+          target: targetRef,
+          status: normalized.ok ? "ok" : "drift",
+          message: normalized.message ?? (normalized.ok ? "target matches graph expectation" : "target does not match graph expectation"),
+          lastReceiptId: lastReceipt?.id
+        });
+      } catch (error) {
+        findings.push({
+          target: targetRef,
+          status: "drift",
+          message: serializeError(error).message,
+          lastReceiptId: lastReceipt?.id
+        });
+      }
+    }
+
+    if (!lastReceipt) {
+      findings.push({
+        target: target("receipt", `${type}:${id}`, "custom"),
+        status: "drift",
+        message: "No receipt found for this entity"
+      });
+    }
+
+    const status = findings.some((finding) => finding.status === "drift") ? "drift" : "ok";
+    return {
+      entity: entityRef,
+      status,
+      findings,
+      lastReceipt,
+      toText: () =>
+        [
+          status === "drift" ? "Drift detected." : "No drift detected.",
+          "",
+          `${type}:${id}`,
+          "",
+          ...findings.map((finding) => `- ${finding.status} ${finding.target.adapter}:${finding.target.key} ${finding.message}`)
+        ].join("\n")
+    };
+  }
+
+  #contractReport(): ServiceContractReport {
+    const failures: string[] = [];
+    for (const emitted of this.#emittedContracts) {
+      for (const consumed of this.#consumedContracts.filter((item) => item.event === emitted.event)) {
+        const diff = schemaDiff(emitted.event, emitted.schema, consumed.schema);
+        if (diff.breaking) {
+          failures.push(`${emitted.service} emits ${emitted.event}, but ${consumed.service} expects different fields: ${diff.changes.join(", ")}`);
+        }
+      }
+    }
+    return {
+      passed: failures.length === 0,
+      failures,
+      emits: [...this.#emittedContracts],
+      consumes: [...this.#consumedContracts],
+      toText: () =>
+        [
+          "Service contract check",
+          "",
+          failures.length ? "Failures:" : "No mismatches found.",
+          ...(failures.length ? failures.map((failure) => `- ${failure}`) : [])
+        ].join("\n")
+    };
+  }
+
+  #schemaDocs(): string {
+    const lines = ["# Event schemas", ""];
+    for (const [event, schema] of this.#schemaVersions) {
+      lines.push(`## ${event}`, "", `Version: ${schema.version ?? "unversioned"}`, "");
+      for (const [field, type] of Object.entries(schema.fields ?? {})) {
+        const required = schema.required?.includes(field) ? "required" : "optional";
+        lines.push(`- ${field}: ${type} (${required})`);
+      }
+      lines.push("");
+    }
+    return lines.join("\n");
+  }
+
+  #schemaMatrix(): Array<{ event: string; producers: string[]; consumers: string[]; status: "compatible" | "mismatch" }> {
+    const events = uniqueStrings([...this.#emittedContracts, ...this.#consumedContracts].map((contract) => contract.event));
+    return events.map((event) => {
+      const producers = this.#emittedContracts.filter((contract) => contract.event === event);
+      const consumers = this.#consumedContracts.filter((contract) => contract.event === event);
+      const mismatch = producers.some((producer) =>
+        consumers.some((consumer) => schemaDiff(event, producer.schema, consumer.schema).breaking)
+      );
+      return {
+        event,
+        producers: producers.map((contract) => contract.service),
+        consumers: consumers.map((contract) => contract.service),
+        status: mismatch ? "mismatch" : "compatible"
+      };
+    });
   }
 
   async #executeTargets(targets: TargetRef[], context: MutationContext): Promise<ExecutionResult[]> {
@@ -1204,6 +1916,65 @@ export class StaleZeroEngine {
     }));
     indexed.push(...singleResults);
     return indexed.sort((left, right) => left.index - right.index).map((entry) => entry.result);
+  }
+
+  async #proveTargets(targets: TargetRef[], context: MutationContext, timeoutMs?: number): Promise<StateProof[]> {
+    return mapLimit(targets, this.#config.execution.concurrency ?? 10, async (targetRef) => {
+      const started = now();
+      const adapter = this.#adapters.get(targetRef.adapter);
+      if (context.dryRun) {
+        return {
+          adapter: targetRef.adapter,
+          key: targetRef.key,
+          action: targetRef.action,
+          status: "skipped",
+          durationMs: 0,
+          target: targetRef,
+          message: "dry run"
+        };
+      }
+      if (!adapter?.verify) {
+        return {
+          adapter: targetRef.adapter,
+          key: targetRef.key,
+          action: targetRef.action,
+          status: "skipped",
+          durationMs: 0,
+          target: targetRef,
+          message: "adapter has no verify method"
+        };
+      }
+      try {
+        const result = await withTimeout(
+          () => adapter.verify?.(targetRef, context),
+          timeoutMs ?? targetRef.timeoutMs ?? this.#config.execution.timeoutMs ?? 3000,
+          `${targetRef.adapter} proof ${targetRef.key}`
+        );
+        const normalized =
+          typeof result === "object" && result !== null
+            ? result
+            : { ok: result === true, message: typeof result === "string" ? result : undefined };
+        return {
+          adapter: targetRef.adapter,
+          key: targetRef.key,
+          action: targetRef.action,
+          status: normalized.ok ? "passed" : "failed",
+          durationMs: now() - started,
+          target: targetRef,
+          message: normalized.message
+        };
+      } catch (error) {
+        return {
+          adapter: targetRef.adapter,
+          key: targetRef.key,
+          action: targetRef.action,
+          status: "failed",
+          durationMs: now() - started,
+          target: targetRef,
+          error: serializeError(error)
+        };
+      }
+    });
   }
 
   async #executeBatch(batchKey: string, batchTargets: TargetRef[], context: MutationContext): Promise<ExecutionResult[]> {
@@ -1414,7 +2185,7 @@ export class StaleZeroEngine {
       }
       const generated = await mirror.definition.target(input, context);
       for (const targetRef of asArray(generated).filter(isTargetRef)) {
-        mirrorTargets.push({ ...targetRef, label: targetRef.label ?? mirror.name });
+        mirrorTargets.push({ ...targetRef, label: targetRef.label ?? mirror.name, owner: targetRef.owner ?? mirror.definition.owner });
       }
     }
 
@@ -1938,8 +2709,88 @@ function compareRisk(left: RiskLevel, right: RiskLevel): number {
   return riskOrder.indexOf(left) - riskOrder.indexOf(right);
 }
 
+function schemaDiff(event: string, from: ServiceContract["schema"] | undefined, to: ServiceContract["schema"] | undefined): {
+  event: string;
+  from?: ServiceContract["schema"];
+  to?: ServiceContract["schema"];
+  breaking: boolean;
+  changes: string[];
+  toText: () => string;
+} {
+  if (to === undefined) {
+    to = from;
+  }
+  const changes: string[] = [];
+  const fromFields = from?.fields ?? {};
+  const toFields = to?.fields ?? {};
+  for (const field of Object.keys(fromFields)) {
+    if (!(field in toFields)) {
+      changes.push(`removed field ${field}`);
+    } else if (fromFields[field] !== toFields[field]) {
+      changes.push(`changed ${field} from ${fromFields[field]} to ${toFields[field]}`);
+    }
+  }
+  for (const field of Object.keys(toFields)) {
+    if (!(field in fromFields)) {
+      changes.push(`added field ${field}`);
+    }
+  }
+  for (const field of to?.required ?? []) {
+    if (!from?.required?.includes(field) && !(field in fromFields)) {
+      changes.push(`new required field ${field}`);
+    }
+  }
+  const breaking = changes.some((change) => change.startsWith("removed") || change.startsWith("changed") || change.startsWith("new required"));
+  return {
+    event,
+    from,
+    to,
+    breaking,
+    changes,
+    toText: () => [`Schema diff: ${event}`, "", ...(changes.length ? changes.map((change) => `- ${change}`) : ["- no changes"])].join("\n")
+  };
+}
+
+function estimateCost(targets: TargetRef[]): CostReport {
+  const adapterCalls: Record<string, number> = {};
+  let score = 0;
+  let estimatedExternalCalls = 0;
+  const reasons: string[] = [];
+  for (const targetRef of targets) {
+    adapterCalls[targetRef.adapter] = (adapterCalls[targetRef.adapter] ?? 0) + 1;
+    score += targetRef.cost ?? 1;
+    if (["http", "webhook", "search", "socket", "queue", "job"].includes(targetRef.adapter)) {
+      estimatedExternalCalls += 1;
+      score += 3;
+    }
+    if (targetRef.key.includes("*")) {
+      score += 10;
+    }
+  }
+  if (targets.length > 25) {
+    reasons.push(`${targets.length} targets`);
+  }
+  if (estimatedExternalCalls > 0) {
+    reasons.push(`${estimatedExternalCalls} external calls`);
+  }
+  if (targets.some((targetRef) => targetRef.key.includes("*"))) {
+    reasons.push("wildcard target");
+  }
+  if (reasons.length === 0) {
+    reasons.push("small local blast radius");
+  }
+  return {
+    level: score >= 75 ? "high" : score >= 25 ? "medium" : "low",
+    score,
+    targets: targets.length,
+    adapterCalls,
+    estimatedExternalCalls,
+    reasons
+  };
+}
+
 function isSafeReplayTarget(targetRef: TargetRef): boolean {
-  if (targetRef.meta?.idempotent === true) {
+  if (targetRef.idempotent === true || targetRef.meta?.idempotent === true) {
     return true;
   }
   return ["delete", "invalidate", "refetch", "revalidate", "remove"].includes(targetRef.action);

@@ -2,7 +2,7 @@
 import { createServer } from "node:http";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { createStaleZero, type Manifest, type MutationSnapshotData, type Receipt } from "@stalezero/core";
+import { createStaleZero, type Manifest, type Receipt, type ServiceContract, type TargetRef } from "@stalezero/core";
 
 type Command = {
   name: string;
@@ -114,7 +114,7 @@ const commands: Command[] = [
     run: async (args) => {
       const idOrFile = args[0];
       if (!idOrFile) {
-        throw new Error("Usage: stalezero replay <receipt-file> [--sandbox|--dry-run|--safe-replay|--force]");
+        throw new Error("Usage: stalezero replay <receipt-file> [--sandbox|--dry-run|--safe-replay|--force] [--target=x] [--adapter=x] [--failed-only]");
       }
       const mode = args.includes("--force")
         ? "force"
@@ -124,8 +124,92 @@ const commands: Command[] = [
             ? "dry-run"
             : "sandbox";
       const receipt = JSON.parse(await readReceipt(idOrFile)) as Receipt;
-      const result = await createStaleZero().replay(receipt, { mode });
+      const result = await createStaleZero().replay(receipt, {
+        mode,
+        target: readFlag(args, "--target"),
+        adapter: readFlag(args, "--adapter"),
+        failedOnly: args.includes("--failed-only"),
+        requiredOnly: args.includes("--required-only"),
+        safeOnly: args.includes("--safe-only"),
+        currentGraph: args.includes("--current-graph")
+      });
       console.log(result.toText());
+    }
+  },
+  {
+    name: "undo",
+    description: "Preview or run a reversible mutation undo",
+    run: async (args) => {
+      const idOrFile = args[0];
+      if (!idOrFile) {
+        throw new Error("Usage: stalezero undo <receipt-file> [--force]");
+      }
+      const receipt = JSON.parse(await readReceipt(idOrFile)) as Receipt;
+      const stale = createStaleZero();
+      stale.undoable(receipt.mutation, {
+        undo: () => undefined,
+        targets: ({ receipt }) => receipt.targets.filter((targetRef) => isCliSafeReplayTarget(targetRef)).map((targetRef) => ({ ...targetRef, required: false }))
+      });
+      if (args.includes("--force")) {
+        const result = await stale.undo(receipt);
+        console.log(result.toText());
+        return;
+      }
+      const preview = await stale.previewUndo(receipt);
+      console.log(preview.toText());
+    }
+  },
+  {
+    name: "playbook",
+    description: "Print deterministic recovery steps for a receipt",
+    run: async (args) => {
+      const idOrFile = args[0];
+      if (!idOrFile) {
+        throw new Error("Usage: stalezero playbook <receipt-file>");
+      }
+      const receipt = JSON.parse(await readReceipt(idOrFile)) as Receipt;
+      console.log((await createStaleZero().playbook(receipt)).toText());
+    }
+  },
+  {
+    name: "incident",
+    description: "Export a failed receipt as an incident note",
+    run: async (args) => {
+      const idOrFile = args[0];
+      if (!idOrFile) {
+        throw new Error("Usage: stalezero incident <receipt-file>");
+      }
+      const receipt = JSON.parse(await readReceipt(idOrFile)) as Receipt;
+      console.log(await createStaleZero().incident(receipt));
+    }
+  },
+  {
+    name: "canary",
+    description: "Run a mutation wiring canary without touching real systems",
+    run: async (args) => {
+      const mutation = args[0];
+      if (!mutation) {
+        throw new Error("Usage: stalezero canary <mutation> [json|--key=value]");
+      }
+      const input = parseInputArgs(args.slice(1));
+      const stale = createStaleZero();
+      const manifest = await tryReadManifest();
+      if (manifest) {
+        stale.loadManifest(manifest);
+      }
+      console.log((await stale.canary(mutation, input)).toText());
+    }
+  },
+  {
+    name: "drift",
+    description: "Scan an entity for graph drift",
+    run: async (args) => {
+      const entityName = args[0];
+      const id = args[1];
+      if (!entityName || !id) {
+        throw new Error("Usage: stalezero drift <entity> <id>");
+      }
+      console.log((await createStaleZero().drift.scan(entityName, id)).toText());
     }
   },
   {
@@ -174,6 +258,58 @@ const commands: Command[] = [
     }
   },
   {
+    name: "contract-check",
+    description: "Check service mutation event contracts",
+    run: async (args) => {
+      const file = resolve(args[0] ?? ".stalezero/service-contracts.json");
+      if (!(await exists(file))) {
+        console.log("No service contracts found");
+        return;
+      }
+      const stale = createStaleZero();
+      const data = JSON.parse(await readFile(file, "utf8")) as {
+        emits?: ServiceContract[];
+        consumes?: ServiceContract[];
+      };
+      for (const contract of data.emits ?? []) {
+        stale.emits(contract.event, contract.schema, { service: contract.service });
+      }
+      for (const contract of data.consumes ?? []) {
+        stale.consumes(contract.event, contract.schema, { service: contract.service });
+      }
+      const report = stale.contractCheck();
+      console.log(report.toText());
+      if (!report.passed) {
+        process.exitCode = 1;
+      }
+    }
+  },
+  {
+    name: "schema",
+    description: "Check or diff event schemas",
+    run: async (args) => {
+      const action = args[0] ?? "check";
+      const file = resolve(args[1] ?? ".stalezero/schemas.json");
+      if (!(await exists(file))) {
+        console.log("No schema registry found");
+        return;
+      }
+      const data = JSON.parse(await readFile(file, "utf8")) as Record<string, ServiceContract["schema"]>;
+      const stale = createStaleZero();
+      const registry = stale.schemaRegistry();
+      for (const [event, schema] of Object.entries(data)) {
+        registry.register(event, schema);
+      }
+      if (action === "diff") {
+        for (const event of Object.keys(data)) {
+          console.log(registry.diff(event, data[event]).toText());
+        }
+        return;
+      }
+      console.log(registry.docs());
+    }
+  },
+  {
     name: "generate",
     description: "Generate recipe starter code",
     run: async (args) => {
@@ -205,8 +341,10 @@ const commands: Command[] = [
       await mkdir(dirname(markdownOutput), { recursive: true });
       await writeFile(markdownOutput, markdown);
       await writeFile(graphOutput, html);
+      await writeDocsAsCode(manifest);
       console.log(`Wrote ${markdownOutput}`);
       console.log(`Wrote ${graphOutput}`);
+      console.log("Wrote docs/mutations, docs/entities, and docs/adapters");
     }
   },
   {
@@ -316,6 +454,85 @@ const commands: Command[] = [
       await new Promise<void>((resolveListen) => server.listen(port, resolveListen));
       console.log(`Devtools listening on http://localhost:${port}`);
     }
+  },
+  {
+    name: "cost",
+    description: "Estimate mutation consequence cost",
+    run: async (args) => {
+      const mutation = args[0];
+      if (!mutation) {
+        throw new Error("Usage: stalezero cost <mutation> [json|--key=value]");
+      }
+      const input = parseInputArgs(args.slice(1));
+      const stale = createStaleZero();
+      const manifest = await tryReadManifest();
+      if (manifest) {
+        stale.loadManifest(manifest);
+      }
+      const report = await stale.cost(mutation, input);
+      console.log(`Cost: ${report.level} (${report.score})`);
+      console.log(`Targets: ${report.targets}`);
+      for (const [adapter, count] of Object.entries(report.adapterCalls)) {
+        console.log(`- ${adapter}: ${count}`);
+      }
+      for (const reason of report.reasons) {
+        console.log(`Reason: ${reason}`);
+      }
+    }
+  },
+  {
+    name: "watch",
+    description: "Watch local receipt files and print a live mutation feed",
+    run: async (args) => {
+      const once = args.includes("--once");
+      const folder = resolve(".stalezero/receipts");
+      await printReceiptFeed(folder);
+      if (once) {
+        return;
+      }
+      console.log("Watching StaleZero receipts...");
+      setInterval(() => {
+        void printReceiptFeed(folder);
+      }, 2000);
+    }
+  },
+  {
+    name: "scan",
+    description: "Scan source for migration candidates or duplicate invalidation work",
+    run: async (args) => {
+      const mode = args[0] === "duplicates" ? "duplicates" : "migration";
+      const folder = resolve(args[1] ?? "src");
+      const result = await scanSource(folder, mode);
+      console.log(`${mode === "duplicates" ? "Duplicate work" : "Migration"} scan`);
+      if (result.findings.length === 0) {
+        console.log("No findings");
+        return;
+      }
+      for (const finding of result.findings) {
+        console.log(`- ${finding.file}${finding.line ? `:${finding.line}` : ""} ${finding.pattern}${finding.suggestion ? ` -> ${finding.suggestion}` : ""}`);
+      }
+    }
+  },
+  {
+    name: "diagnostics",
+    description: "Write editor diagnostics from a manifest",
+    run: async (args) => {
+      const manifest = await readManifest(args[0]);
+      const diagnostics = Object.entries(manifest.mutations).flatMap(([mutation, item]) => {
+        const output = [];
+        if (!item.owner) {
+          output.push({ code: "missing-owner", severity: "warning", message: `Mutation ${mutation} has no owner`, subject: mutation });
+        }
+        if (item.mirrors.length === 0) {
+          output.push({ code: "no-targets", severity: "info", message: `Mutation ${mutation} has no targets`, subject: mutation });
+        }
+        return output;
+      });
+      const output = resolve(".stalezero/diagnostics.json");
+      await mkdir(dirname(output), { recursive: true });
+      await writeFile(output, `${JSON.stringify(diagnostics, null, 2)}\n`);
+      console.log(`Wrote ${output}`);
+    }
   }
 ];
 
@@ -411,6 +628,19 @@ function parseScalar(value: string): unknown {
   } catch {
     return value;
   }
+}
+
+function readFlag(args: string[], name: string): string | undefined {
+  const prefixed = args.find((arg) => arg.startsWith(`${name}=`));
+  if (prefixed) {
+    return prefixed.slice(name.length + 1);
+  }
+  const index = args.indexOf(name);
+  return index >= 0 ? args[index + 1] : undefined;
+}
+
+function isCliSafeReplayTarget(targetRef: TargetRef): boolean {
+  return targetRef.idempotent === true || ["delete", "invalidate", "refetch", "revalidate", "remove"].includes(targetRef.action);
 }
 
 async function supplyChainChecks(): Promise<Array<{ name: string; ok: boolean; detail?: string }>> {
@@ -517,6 +747,130 @@ function renderMutationDocs(manifest: Manifest): string {
     lines.push("", "Security:", "- review schema, actor, tenant, and target safety before production use", "");
   }
   return `${lines.join("\n")}\n`;
+}
+
+async function writeDocsAsCode(manifest: Manifest): Promise<void> {
+  const mutationDir = resolve("docs", "mutations");
+  const entityDir = resolve("docs", "entities");
+  const adapterDir = resolve("docs", "adapters");
+  await mkdir(mutationDir, { recursive: true });
+  await mkdir(entityDir, { recursive: true });
+  await mkdir(adapterDir, { recursive: true });
+
+  for (const [mutation, item] of Object.entries(manifest.mutations)) {
+    const body = [
+      `# ${mutation}`,
+      "",
+      item.owner ? `Owner: ${item.owner}` : "Owner: not declared",
+      "",
+      "## Targets",
+      ...(item.mirrors.length ? item.mirrors.map((mirror) => `- ${mirror}`) : ["- no targets declared"]),
+      "",
+      "## Security",
+      "- keep schema, actor, tenant, and target safety checks wired before production use",
+      ""
+    ].join("\n");
+    await writeFile(join(mutationDir, `${safeFileName(mutation)}.md`), body);
+  }
+
+  for (const adapter of manifest.adapters) {
+    const mirrors = Object.entries(manifest.mirrors).filter(([name]) => name.toLowerCase().includes(adapter.toLowerCase()));
+    await writeFile(
+      join(adapterDir, `${safeFileName(adapter)}.md`),
+      [`# ${adapter}`, "", "## Targets", ...(mirrors.length ? mirrors.map(([name]) => `- ${name}`) : ["- no manifest targets found"]), ""].join("\n")
+    );
+  }
+
+  const entities = new Set<string>();
+  for (const mutation of Object.keys(manifest.mutations)) {
+    const match = mutation.match(/^([A-Z][a-zA-Z0-9]+)/);
+    if (match?.[1]) {
+      entities.add(match[1].replace(/(Updated|Deleted|Created|Changed|Cancelled)$/u, ""));
+    }
+  }
+  for (const name of entities) {
+    await writeFile(join(entityDir, `${safeFileName(name)}.md`), [`# ${name}`, "", "Generated from mutation names in the manifest.", ""].join("\n"));
+  }
+}
+
+async function printReceiptFeed(folder: string): Promise<void> {
+  if (!(await exists(folder))) {
+    console.log("No local receipts found");
+    return;
+  }
+  const files = (await readdir(folder)).filter((file) => file.endsWith(".json")).slice(-10);
+  for (const file of files) {
+    const receipt = JSON.parse(await readFile(join(folder, file), "utf8")) as Receipt;
+    const marker = receipt.status === "success" || receipt.status === "dry-run" ? "ok" : "fail";
+    console.log(`${marker} ${receipt.mutation} -> ${receipt.targets.length} targets -> ${receipt.status}`);
+  }
+}
+
+async function scanSource(folder: string, mode: "migration" | "duplicates"): Promise<{ findings: Array<{ file: string; line?: number; pattern: string; suggestion?: string }> }> {
+  if (!(await exists(folder))) {
+    return { findings: [] };
+  }
+  const files = await sourceFiles(folder);
+  const patterns = [
+    { pattern: "queryClient.invalidateQueries", suggestion: "declare a query target" },
+    { pattern: "mutate(", suggestion: "declare an SWR target" },
+    { pattern: "revalidateTag", suggestion: "declare a Next tag target" },
+    { pattern: "redis.del", suggestion: "declare a Redis target" },
+    { pattern: "store.dispatch", suggestion: "declare a Redux target" },
+    { pattern: "io.emit", suggestion: "declare a socket target" }
+  ];
+  const findings: Array<{ file: string; line?: number; pattern: string; suggestion?: string }> = [];
+  const signatures = new Map<string, string[]>();
+
+  for (const file of files) {
+    const body = await readFile(file, "utf8");
+    const lines = body.split(/\r?\n/u);
+    const seenInFile: string[] = [];
+    lines.forEach((line, index) => {
+      for (const item of patterns) {
+        if (line.includes(item.pattern)) {
+          seenInFile.push(item.pattern);
+          if (mode === "migration") {
+            findings.push({ file, line: index + 1, pattern: item.pattern, suggestion: item.suggestion });
+          }
+        }
+      }
+    });
+    const signature = seenInFile.sort().join("+");
+    if (signature) {
+      signatures.set(signature, [...(signatures.get(signature) ?? []), file]);
+    }
+  }
+
+  if (mode === "duplicates") {
+    for (const [signature, repeatedFiles] of signatures) {
+      if (repeatedFiles.length > 1) {
+        for (const file of repeatedFiles) {
+          findings.push({ file, pattern: signature, suggestion: "move this repeated consequence set into one mutation" });
+        }
+      }
+    }
+  }
+
+  return { findings };
+}
+
+async function sourceFiles(folder: string): Promise<string[]> {
+  const entries = await readdir(folder, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const path = join(folder, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await sourceFiles(path)));
+    } else if (/\.(mjs|cjs|js|jsx|ts|tsx)$/u.test(entry.name)) {
+      files.push(path);
+    }
+  }
+  return files;
+}
+
+function safeFileName(value: string): string {
+  return value.replace(/[^a-z0-9._-]+/giu, "-").replace(/^-|-$/gu, "") || "item";
 }
 
 function normalizeCommand(name: string, args: string[]): { name: string; args: string[] } {

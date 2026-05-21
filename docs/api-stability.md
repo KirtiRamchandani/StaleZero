@@ -6,6 +6,14 @@
 | `changed()` | Stable |
 | `preview()` | Stable |
 | `snapshot()`, `compareSnapshots()`, `replay()` | Stable |
+| `flow()` and `StaleZeroFlowBuilder` | Stable |
+| `undoable()`, `previewUndo()`, `undo()` | Stable |
+| `timeMachine()`, `incident()`, `playbook()` | Stable |
+| `drift.scan()` | Stable |
+| `impact()`, `cost()`, `canary()` | Stable |
+| `emits()`, `consumes()`, `contractCheck()`, `schemaRegistry()` | Stable |
+| State proofs with adapter `verify()` | Stable |
+| `diagnostics()` and `codeowners()` | Stable |
 | `contract()` mutation behavior tests | Stable |
 | `receipts` | Stable |
 | Memory adapter | Stable |

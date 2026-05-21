@@ -12,8 +12,13 @@ export function createReceipt(input: {
   timestamp: number;
   app?: string;
   traceId?: string;
+  owner?: Receipt["owner"];
   risk?: Receipt["risk"];
   slo?: Receipt["slo"];
+  proofs?: Receipt["proofs"];
+  flow?: Receipt["flow"];
+  undo?: Receipt["undo"];
+  cost?: Receipt["cost"];
   approval?: Receipt["approval"];
 }): Receipt {
   const snapshot: ReceiptSnapshot = {
@@ -28,8 +33,13 @@ export function createReceipt(input: {
     timestamp: input.timestamp,
     app: input.app,
     traceId: input.traceId,
+    owner: input.owner,
     risk: input.risk,
     slo: input.slo,
+    proofs: input.proofs,
+    flow: input.flow,
+    undo: input.undo,
+    cost: input.cost,
     approval: input.approval
   };
 
@@ -91,6 +101,27 @@ export function receiptToText(receipt: ReceiptSnapshot): string {
     lines.push("", `SLO: ${receipt.slo.status}`);
     for (const check of receipt.slo.checks) {
       lines.push(`- ${check.status} ${check.name}${check.message ? `: ${check.message}` : ""}`);
+    }
+  }
+
+  if (receipt.proofs?.length) {
+    lines.push("", "Proof:");
+    for (const proof of receipt.proofs) {
+      lines.push(`- ${proof.status} ${proof.adapter} ${proof.key}${proof.message ? `: ${proof.message}` : ""}`);
+    }
+  }
+
+  if (receipt.cost) {
+    lines.push("", `Cost: ${receipt.cost.level} (${receipt.cost.score})`);
+    for (const reason of receipt.cost.reasons) {
+      lines.push(`- ${reason}`);
+    }
+  }
+
+  if (receipt.flow) {
+    lines.push("", `Flow: ${receipt.flow.name} ${receipt.flow.status}`);
+    for (const step of receipt.flow.steps) {
+      lines.push(`- ${step.status} ${step.name} (${step.durationMs}ms)`);
     }
   }
 

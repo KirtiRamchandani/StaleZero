@@ -1,15 +1,5 @@
 [
   [
-    "@emnapi/core",
-    "MIT",
-    "pass"
-  ],
-  [
-    "@emnapi/runtime",
-    "MIT",
-    "pass"
-  ],
-  [
     "@emnapi/wasi-threads",
     "MIT",
     "pass"

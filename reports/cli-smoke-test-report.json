@@ -70,6 +70,71 @@
     "Replay: UserUpdated"
   ],
   [
+    "stalezero replay sample --target=query:invalidate:[\"user\",\"123\"]",
+    "pass",
+    "Replay: UserUpdated"
+  ],
+  [
+    "stalezero undo sample",
+    "pass",
+    "Undo preview: UserUpdated"
+  ],
+  [
+    "stalezero playbook sample",
+    "pass",
+    "Playbook: UserUpdated"
+  ],
+  [
+    "stalezero incident sample",
+    "pass",
+    "# Incident: UserUpdated success"
+  ],
+  [
+    "stalezero canary UserUpdated --userId=123",
+    "pass",
+    "Canary: UserUpdated"
+  ],
+  [
+    "stalezero drift User 123",
+    "pass",
+    "Drift detected."
+  ],
+  [
+    "stalezero contract-check",
+    "pass",
+    "Service contract check"
+  ],
+  [
+    "stalezero schema check",
+    "pass",
+    "# Event schemas"
+  ],
+  [
+    "stalezero cost UserUpdated --userId=123",
+    "pass",
+    "Cost: low (1)"
+  ],
+  [
+    "stalezero watch --once",
+    "pass",
+    "ok UserUpdated -> 1 targets -> success"
+  ],
+  [
+    "stalezero scan src",
+    "pass",
+    "Migration scan"
+  ],
+  [
+    "stalezero scan duplicates src",
+    "pass",
+    "Duplicate work scan"
+  ],
+  [
+    "stalezero diagnostics",
+    "pass",
+    "Wrote <temp>\\.stalezero\\diagnostics.json"
+  ],
+  [
     "stalezero generate product-catalog",
     "pass",
     "Wrote <temp>\\src\\stalezero\\product-catalog.ts"
