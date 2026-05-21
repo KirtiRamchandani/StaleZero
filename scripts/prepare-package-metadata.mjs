@@ -5,13 +5,26 @@ import { packageDirs, readJson, root } from "./lib.mjs";
 const shared = {
   repository: {
     type: "git",
-    url: "https://github.com/stalezero/stalezero.git"
+    url: "https://github.com/KirtiRamchandani/StaleZero.git"
   },
   bugs: {
-    url: "https://github.com/stalezero/stalezero/issues"
+    url: "https://github.com/KirtiRamchandani/StaleZero/issues"
   },
-  homepage: "https://github.com/stalezero/stalezero#readme",
-  keywords: ["cache", "invalidation", "typescript", "javascript", "state", "redis", "react-query", "swr", "nextjs"],
+  homepage: "https://github.com/KirtiRamchandani/StaleZero#readme",
+  keywords: [
+    "cache",
+    "invalidation",
+    "typescript",
+    "javascript",
+    "state",
+    "redis",
+    "react-query",
+    "swr",
+    "nextjs",
+    "mutation",
+    "devtools",
+    "opentelemetry"
+  ],
   engines: {
     node: ">=20"
   }

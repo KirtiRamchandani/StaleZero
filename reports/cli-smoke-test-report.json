@@ -2,12 +2,12 @@
   [
     "stalezero init",
     "pass",
-    "Created C:\\Users\\kirti\\AppData\\Local\\Temp\\stalezero-cli-1779331922267\\stalezero.config.json"
+    "Created <temp>\\stalezero.config.json"
   ],
   [
     "stalezero manifest",
     "pass",
-    "Wrote C:\\Users\\kirti\\AppData\\Local\\Temp\\stalezero-cli-1779331922267\\.stalezero\\manifest.json"
+    "Wrote <temp>\\.stalezero\\manifest.json"
   ],
   [
     "stalezero preview UserUpdated --userId=123 --teamId=456",
@@ -22,7 +22,7 @@
   [
     "stalezero compile",
     "pass",
-    "Wrote C:\\Users\\kirti\\AppData\\Local\\Temp\\stalezero-cli-1779331922267\\.stalezero\\manifest.json"
+    "Wrote <temp>\\.stalezero\\manifest.json"
   ],
   [
     "stalezero test-contracts",
@@ -37,12 +37,12 @@
   [
     "stalezero graph",
     "pass",
-    "Wrote C:\\Users\\kirti\\AppData\\Local\\Temp\\stalezero-cli-1779331922267\\.stalezero\\graph.json"
+    "Wrote <temp>\\.stalezero\\graph.json"
   ],
   [
     "stalezero docs",
     "pass",
-    "Wrote C:\\Users\\kirti\\AppData\\Local\\Temp\\stalezero-cli-1779331922267\\docs\\mutations.md"
+    "Wrote <temp>\\docs\\mutations.md"
   ],
   [
     "stalezero list mutations",
@@ -72,12 +72,12 @@
   [
     "stalezero generate product-catalog",
     "pass",
-    "Wrote C:\\Users\\kirti\\AppData\\Local\\Temp\\stalezero-cli-1779331922267\\src\\stalezero\\product-catalog.ts"
+    "Wrote <temp>\\src\\stalezero\\product-catalog.ts"
   ],
   [
     "stalezero devtools --once",
     "pass",
-    "Wrote C:\\Users\\kirti\\AppData\\Local\\Temp\\stalezero-cli-1779331922267\\.stalezero\\devtools.html"
+    "Wrote <temp>\\.stalezero\\devtools.html"
   ],
   [
     "stalezero doctor",

@@ -31,12 +31,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/stalezero/stalezero.git"
+    "url": "https://github.com/KirtiRamchandani/StaleZero.git"
   },
   "bugs": {
-    "url": "https://github.com/stalezero/stalezero/issues"
+    "url": "https://github.com/KirtiRamchandani/StaleZero/issues"
   },
-  "homepage": "https://github.com/stalezero/stalezero#readme",
+  "homepage": "https://github.com/KirtiRamchandani/StaleZero#readme",
   "keywords": [
     "cache",
     "invalidation",
@@ -46,7 +46,10 @@
     "redis",
     "react-query",
     "swr",
-    "nextjs"
+    "nextjs",
+    "mutation",
+    "devtools",
+    "opentelemetry"
   ],
   "engines": {
     "node": ">=20"

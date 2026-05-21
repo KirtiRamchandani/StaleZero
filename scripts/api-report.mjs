@@ -26,18 +26,20 @@ const stability = markdownTable(
     ["createStaleZero()", "Stable"],
     ["changed()", "Stable"],
     ["preview()", "Stable"],
+    ["snapshot(), compareSnapshots(), replay()", "Stable"],
+    ["contract() mutation behavior tests", "Stable"],
     ["receipts", "Stable"],
     ["memory adapter", "Stable"],
-    ["Redis adapter", "Beta"],
-    ["React Query adapter", "Beta"],
-    ["SWR adapter", "Beta"],
-    ["Next adapter", "Beta/server-only"],
-    ["RTK Query adapter", "Experimental"],
-    ["tRPC adapter", "Experimental"],
-    ["GraphQL adapter", "Experimental"],
-    ["Kafka/NATS buses", "Experimental"],
-    ["Devtools", "Beta"],
-    ["CLI", "Beta"]
+    ["Redis adapter", "Stable"],
+    ["React Query adapter", "Stable"],
+    ["SWR adapter", "Stable"],
+    ["Next adapter", "Stable/server-only"],
+    ["Redux, RTK Query, tRPC, Zustand, Apollo, GraphQL adapters", "Stable"],
+    ["Cloudflare KV, WebSocket, search, HTTP adapters", "Stable"],
+    ["Memory, Redis, Postgres, Kafka, NATS, HTTP buses", "Stable"],
+    ["52 target helper catalog", "Stable"],
+    ["Mutation Studio data API and devtools handler", "Stable"],
+    ["CLI", "Stable"]
   ]
 );
 

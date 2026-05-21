@@ -2,7 +2,29 @@
   "name": "stalezero-repo",
   "version": "0.1.0",
   "private": true,
+  "description": "Mutation consequence engine for cache invalidation, state sync, receipts, and devtools.",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KirtiRamchandani/StaleZero.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KirtiRamchandani/StaleZero/issues"
+  },
+  "homepage": "https://github.com/KirtiRamchandani/StaleZero#readme",
+  "keywords": [
+    "cache",
+    "invalidation",
+    "typescript",
+    "redis",
+    "react-query",
+    "swr",
+    "nextjs",
+    "devtools",
+    "opentelemetry",
+    "state-management"
+  ],
   "packageManager": "npm@11.6.2",
   "workspaces": [
     "packages/core",

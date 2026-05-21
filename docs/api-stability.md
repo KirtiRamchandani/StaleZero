@@ -5,30 +5,30 @@
 | `createStaleZero()` | Stable |
 | `changed()` | Stable |
 | `preview()` | Stable |
+| `snapshot()`, `compareSnapshots()`, `replay()` | Stable |
+| `contract()` mutation behavior tests | Stable |
 | `receipts` | Stable |
 | Memory adapter | Stable |
-| Redis adapter | Beta |
-| React Query adapter | Beta |
-| SWR adapter | Beta |
-| Next adapter | Beta/server-only |
-| RTK Query adapter | Experimental |
-| tRPC adapter | Experimental |
-| GraphQL adapter | Experimental |
-| Kafka/NATS buses | Experimental |
-| Devtools | Beta |
-| CLI | Beta |
-| Adapter template package | Beta |
+| Redis adapter | Stable |
+| React Query adapter | Stable |
+| SWR adapter | Stable |
+| Next adapter | Stable/server-only |
+| Redux, RTK Query, tRPC, Zustand, Apollo, GraphQL adapters | Stable |
+| Cloudflare KV, WebSocket, search, HTTP adapters | Stable |
+| Memory, Redis, Postgres, Kafka, NATS, HTTP buses | Stable |
+| 52 target helper catalog | Stable |
+| Mutation Studio data API and devtools handler | Stable |
+| CLI | Stable |
+| Adapter template package | Stable |
 
 Stable APIs should not break within a major version.
 
-Beta APIs are intended for production trials but may receive small breaking changes before 1.0 if the change improves correctness.
-
-Experimental APIs may change without deprecation before 1.0.
+New labs-only APIs, when introduced, must be clearly marked in their package README before release.
 
 ## Versioning
 
-StaleZero starts at `0.1.0` while adapter and bus contracts are hardened. The project follows semantic versioning once `1.0.0` is published.
+StaleZero starts at `0.1.0` with the public API freeze documented here. The project follows semantic versioning once `1.0.0` is published.
 
 ## Deprecation
 
-Stable APIs should receive a documented deprecation notice before removal. Experimental APIs may be renamed or removed with changelog notes.
+Stable APIs should receive a documented deprecation notice before removal.

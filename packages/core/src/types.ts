@@ -16,6 +16,7 @@ export type TargetAction =
   | "remove"
   | "notify"
   | "revalidate"
+  | "purge"
   | "enqueue"
   | "publish"
   | "custom";

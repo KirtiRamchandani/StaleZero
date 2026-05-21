@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/KirtiRamchandani/StaleZero/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/KirtiRamchandani/StaleZero/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <img alt="Release candidate" src="https://img.shields.io/badge/release-RC_ready-2563eb">
+  <a href="https://github.com/KirtiRamchandani/StaleZero/releases"><img alt="release" src="https://img.shields.io/github/v/release/KirtiRamchandani/StaleZero?include_prereleases&label=release"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <img alt="ESM" src="https://img.shields.io/badge/modules-ESM-black">
   <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-339933">
@@ -20,12 +20,15 @@
   <a href="#quick-start">Quick start</a> /
   <a href="#why-this-exists">Why</a> /
   <a href="#what-ships-now">What ships now</a> /
+  <a href="#target-helper-catalog">Target helpers</a> /
   <a href="#mutation-cockpit">Mutation cockpit</a> /
   <a href="#security-boundaries">Security</a> /
   <a href="#release-ready">Release ready</a>
 </p>
 
 ![StaleZero hero](docs/assets/hero.svg)
+
+![StaleZero target helper map](docs/assets/target-helper-map.svg)
 
 ## One Line
 
@@ -57,7 +60,8 @@ Duration: 9ms
 - **Adapter graph:** Redis, React Query, SWR, Redux, RTK Query, tRPC, Zustand, Next, Apollo, GraphQL, Cloudflare KV, WebSocket, search, HTTP, memory.
 - **Distributed mode:** memory, Redis Pub/Sub, Redis Streams, Postgres notify/outbox, Kafka, NATS, HTTP webhooks.
 - **Release candidate hardening:** clean-clone checks, npm pack checks, consumer smoke tests, CLI smoke tests, examples, benchmarks, provenance dry-run.
-- **Next product layer:** Mutation Studio, snapshots, diff action, replay lab, contracts, recipes, compiler, batching, coalescing, SLOs, inbox, workflows, packs, and security gates.
+- **Production target surface:** 52 target helpers for browsers, edge cache, CDNs, data stores, queues, storage, product domains, workflow steps, and observability.
+- **Cockpit layer:** Mutation Studio, snapshots, diff action, replay lab, contracts, recipes, compiler, batching, coalescing, SLOs, inbox, workflows, packs, and security gates.
 
 ## Quick Start
 
@@ -197,12 +201,40 @@ Devtools are disabled by default in production handlers.
 | Receipt retention and bulk export | Stable |
 | Health checks, readiness, graceful shutdown | Stable |
 | Memory adapter and test helpers | Stable |
-| Redis, React Query, SWR, Next adapters | Beta |
-| Redux, RTK Query, tRPC, Zustand, Apollo, GraphQL | Beta and experimental mix |
-| Cloudflare KV, WebSocket, search, HTTP adapters | Beta and experimental mix |
-| Memory, Redis, Postgres, Kafka, NATS, HTTP buses | Beta and experimental mix |
-| Devtools, CLI, OpenTelemetry hooks | Beta |
-| Adapter template starter kit | Beta |
+| Redis, React Query, SWR, Next adapters | Stable |
+| Redux, RTK Query, tRPC, Zustand, Apollo, GraphQL | Stable |
+| Cloudflare KV, WebSocket, search, HTTP adapters | Stable |
+| Memory, Redis, Postgres, Kafka, NATS, HTTP buses | Stable |
+| 52 target helper catalog | Stable |
+| Devtools, CLI, OpenTelemetry hooks | Stable |
+| Adapter template starter kit | Stable |
+
+## Target Helper Catalog
+
+StaleZero now ships 52 production-ready helper factories so mutation graphs can describe nearly every consequence a product app has to coordinate.
+
+| Group | Helpers |
+| --- | --- |
+| Browser and edge | `browserCacheTarget`, `cookieTarget`, `localStorageTarget`, `broadcastChannelTarget`, `serviceWorkerTarget`, `edgeConfigTarget`, `denoKvTarget`, `bunSqliteTarget` |
+| CDN and framework cache | `cdnTarget`, `cdnPurgeTarget`, `cloudfrontTarget`, `fastlyTarget`, `vercelCacheTarget`, `netlifyCacheTarget`, `cloudflareCacheTarget`, `imageCacheTarget` |
+| Messaging and delivery | `webhookTarget`, `queueTarget`, `topicTarget`, `streamTarget`, `emailTarget`, `smsTarget`, `pushTarget`, `analyticsTarget`, `metricsTarget`, `auditLogTarget` |
+| Data and storage | `objectStorageTarget`, `s3Target`, `blobTarget`, `prismaTarget`, `drizzleTarget`, `typeormTarget`, `sequelizeTarget`, `mongoTarget`, `postgresNotifyTarget`, `outboxTarget`, `deadLetterTarget` |
+| Product domains | `featureFlagTarget`, `permissionTarget`, `roleTarget`, `tenantTarget`, `billingTarget`, `stripeTarget`, `inventoryTarget`, `catalogTarget`, `cartTarget`, `checkoutTarget`, `orderTarget`, `workflowTarget`, `cronTarget`, `indexTarget`, `sessionTarget` |
+
+```ts
+await stale
+  .mutate("ProductPriceChanged", { productId: "p1" })
+  .target(cdnPurgeTarget("fastly", "product:p1"))
+  .target(indexTarget("products", "p1"))
+  .target(webhookTarget("https://worker.example.com/invalidate", {
+    meta: {
+      requireHttps: true,
+      allowHosts: ["worker.example.com"],
+      blockPrivateIps: true
+    }
+  }))
+  .run({ consistency: "strict" });
+```
 
 ## Install Smaller
 
@@ -399,6 +431,7 @@ stalezero test-contracts
 
 | Feature | What it unlocks |
 | --- | --- |
+| Target Helper Catalog | 52 ready-made helpers for cache, browser, data, storage, messaging, product, and workflow targets. |
 | Mutation Recipes | `@stalezero/recipes` ships user profile, product catalog, webhooks, order lifecycle, search reindex, and page recipes. |
 | Auto-Manifest Compiler | `stale.compileManifest()` and `stalezero compile` write indexed graph files. |
 | Target Batching | Adapters can implement `batchExecute(targets, context)` and receipts record batch size. |
@@ -509,6 +542,7 @@ Manifest loading: measured as table lookup path
 - [Graph mode](docs/graph-mode.md)
 - [Devtools](docs/devtools.md)
 - [Mutation Studio](docs/mutation-studio.md)
+- [Target helper catalog](docs/target-helper-catalog.md)
 - [Snapshots, replay, and contracts](docs/snapshots-replay-contracts.md)
 - [Recipes and packs](docs/recipes-packs.md)
 - [CLI](docs/cli.md)

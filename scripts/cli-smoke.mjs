@@ -23,7 +23,7 @@ const rows = [];
 const commands = [["init"], ["manifest"]];
 for (const args of commands) {
   const result = await run("node", [cli, ...args], { cwd: temp, capture: true });
-  rows.push([`stalezero ${args.join(" ")}`, "pass", result.stdout.trim().split("\n")[0] ?? ""]);
+  rows.push([`stalezero ${args.join(" ")}`, "pass", firstLine(result.stdout)]);
 }
 
 await writeFile(join(temp, ".stalezero", "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
@@ -71,7 +71,11 @@ for (const args of [
 ]) {
   const allowFailure = args[0] === "doctor" && args.includes("--supply-chain");
   const result = await run("node", [cli, ...args], { cwd: temp, capture: true, allowFailure });
-  rows.push([`stalezero ${args.join(" ")}`, result.code === 0 ? "pass" : "warn", result.stdout.trim().split("\n")[0] ?? ""]);
+  rows.push([`stalezero ${args.join(" ")}`, result.code === 0 ? "pass" : "warn", firstLine(result.stdout)]);
 }
 
 await writeReport("cli-smoke-test-report", ["# CLI Smoke Test Report", "", markdownTable(["Command", "Result", "First line"], rows)].join("\n"), rows);
+
+function firstLine(output) {
+  return (output.trim().split("\n")[0] ?? "").replaceAll(temp, "<temp>");
+}

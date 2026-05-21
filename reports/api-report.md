@@ -9,18 +9,20 @@ Generated from built declaration files.
 | createStaleZero() | Stable |
 | changed() | Stable |
 | preview() | Stable |
+| snapshot(), compareSnapshots(), replay() | Stable |
+| contract() mutation behavior tests | Stable |
 | receipts | Stable |
 | memory adapter | Stable |
-| Redis adapter | Beta |
-| React Query adapter | Beta |
-| SWR adapter | Beta |
-| Next adapter | Beta/server-only |
-| RTK Query adapter | Experimental |
-| tRPC adapter | Experimental |
-| GraphQL adapter | Experimental |
-| Kafka/NATS buses | Experimental |
-| Devtools | Beta |
-| CLI | Beta |
+| Redis adapter | Stable |
+| React Query adapter | Stable |
+| SWR adapter | Stable |
+| Next adapter | Stable/server-only |
+| Redux, RTK Query, tRPC, Zustand, Apollo, GraphQL adapters | Stable |
+| Cloudflare KV, WebSocket, search, HTTP adapters | Stable |
+| Memory, Redis, Postgres, Kafka, NATS, HTTP buses | Stable |
+| 52 target helper catalog | Stable |
+| Mutation Studio data API and devtools handler | Stable |
+| CLI | Stable |
 
 ## Package Export Counts
 
@@ -249,7 +251,7 @@ export type { CommandInput, MutationInput, ReceiptsApi, StaleZero } from "./engi
 export { createId } from "./ids.js";
 export { createReceipt, receiptToText } from "./receipt.js";
 export { MemoryReceiptStore } from "./store.js";
-export { apolloTarget, customTarget, entity, httpTarget, jobTarget, nextPathTarget, nextTagTarget, queryTarget, redisPatternTarget, redisTarget, reduxTarget, searchTarget, socketTarget, swrTarget, target, zustandTarget } from "./targets.js";
+export { analyticsTarget, apolloTarget, auditLogTarget, billingTarget, blobTarget, broadcastChannelTarget, browserCacheTarget, bunSqliteTarget, cartTarget, catalogTarget, cdnPurgeTarget, cdnTarget, checkoutTarget, cloudflareCacheTarget, cloudfrontTarget, customTarget, cookieTarget, cronTarget, deadLetterTarget, denoKvTarget, drizzleTarget, edgeConfigTarget, emailTarget, entity, fastlyTarget, featureFlagTarget, httpTarget, imageCacheTarget, indexTarget, inventoryTarget, jobTarget, localStorageTarget, metricsTarget, mongoTarget, nextPathTarget, nextTagTarget, netlifyCacheTarget, objectStorageTarget, orderTarget, outboxTarget, permissionTarget, postgresNotifyTarget, prismaTarget, pushTarget, queryTarget, queueTarget, redisPatternTarget, redisTarget, roleTarget, reduxTarget, s3Target, searchTarget, sequelizeTarget, serviceWorkerTarget, sessionTarget, smsTarget, socketTarget, streamTarget, stripeTarget, swrTarget, target, tenantTarget, topicTarget, typeormTarget, vercelCacheTarget, webhookTarget, workflowTarget, zustandTarget } from "./targets.js";
 export type { Adapter, ApprovalConfig, AuditEvent, BlackboxConfig, BlackboxEntry, ChangedOptions, CommandDefinition, CompiledManifest, ConsistencyMode, CoalesceConfig, DistributedConfig, EntityRef, EventBus, ExecutionConfig, ExecutionResult, ExecutionStatus, JsonPrimitive, JsonValue, Manifest, MaybePromise, MirrorDefinition, MutationContract, MutationContractResult, MutationContext, MutationDefinition, MutationSnapshot, MutationSnapshotData, Preview, RateLimitConfig, Receipt, ReceiptConfig, ReceiptSnapshot, ReceiptStatus, ReceiptStore, RecipeInstaller, RedactionOptions, ReplayMode, ReplayResult, ResourceDefinition, RiskConfig, RiskLevel, RiskResult, SandboxConfig, SchemaLike, SecurityConfig, SloConfig, SloEvaluation, SnapshotDiff, SnapshotDiffData, StaleEvent, StaleZeroHooks, StaleZeroConfig, StudioApi, StudioOptions, TemplateDefinition, TenantConfig, TargetAction, TargetRef, WorkflowResult, WorkflowStep, WorkflowStepRunner, WhyResult } from "./types.js";
 ```
 ## create-stalezero-adapter-template

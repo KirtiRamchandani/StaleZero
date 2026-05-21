@@ -1,0 +1,128 @@
+import { describe, expect, it } from "vitest";
+import {
+  analyticsTarget,
+  auditLogTarget,
+  billingTarget,
+  blobTarget,
+  broadcastChannelTarget,
+  browserCacheTarget,
+  bunSqliteTarget,
+  cartTarget,
+  catalogTarget,
+  cdnPurgeTarget,
+  cdnTarget,
+  checkoutTarget,
+  cloudflareCacheTarget,
+  cloudfrontTarget,
+  cookieTarget,
+  createStaleZero,
+  cronTarget,
+  deadLetterTarget,
+  denoKvTarget,
+  drizzleTarget,
+  edgeConfigTarget,
+  emailTarget,
+  fastlyTarget,
+  featureFlagTarget,
+  imageCacheTarget,
+  indexTarget,
+  inventoryTarget,
+  localStorageTarget,
+  metricsTarget,
+  mongoTarget,
+  netlifyCacheTarget,
+  objectStorageTarget,
+  orderTarget,
+  outboxTarget,
+  permissionTarget,
+  postgresNotifyTarget,
+  prismaTarget,
+  pushTarget,
+  queueTarget,
+  roleTarget,
+  s3Target,
+  sequelizeTarget,
+  serviceWorkerTarget,
+  sessionTarget,
+  smsTarget,
+  streamTarget,
+  stripeTarget,
+  tenantTarget,
+  topicTarget,
+  type TargetRef,
+  typeormTarget,
+  vercelCacheTarget,
+  webhookTarget,
+  workflowTarget
+} from "./index.js";
+
+describe("target helper catalog", () => {
+  it("ships a broad production target helper pack", async () => {
+    const helpers: TargetRef[] = [
+      browserCacheTarget("product:p1"),
+      cdnTarget("akamai", "product:p1"),
+      cdnPurgeTarget("cloudflare", "product:p1"),
+      cloudfrontTarget("dist_1", "/products/p1"),
+      fastlyTarget("svc_1", "product:p1"),
+      vercelCacheTarget("product:p1"),
+      netlifyCacheTarget("product:p1"),
+      cloudflareCacheTarget("zone_1", "product:p1"),
+      edgeConfigTarget("feature:pricing"),
+      imageCacheTarget("/images/p1.png"),
+      sessionTarget("sess_1"),
+      cookieTarget("cart"),
+      localStorageTarget("cart"),
+      broadcastChannelTarget("products"),
+      serviceWorkerTarget("/"),
+      analyticsTarget("product.changed"),
+      metricsTarget("product_change_total"),
+      auditLogTarget("product-audit"),
+      emailTarget("price-changed", "user@example.com"),
+      smsTarget("price-changed", "+10000000000"),
+      pushTarget("product:p1"),
+      webhookTarget("https://worker.example.com/invalidate"),
+      queueTarget("search", { productId: "p1" }),
+      topicTarget("product.changed", { productId: "p1" }),
+      streamTarget("product-events", "p1"),
+      indexTarget("products", "p1"),
+      objectStorageTarget("catalog", "p1.json"),
+      s3Target("catalog", "p1.json"),
+      blobTarget("catalog", "p1.json"),
+      prismaTarget("Product", "p1"),
+      drizzleTarget("products", "p1"),
+      typeormTarget("Product", "p1"),
+      sequelizeTarget("Product", "p1"),
+      mongoTarget("products", "p1"),
+      postgresNotifyTarget("product_changed", { productId: "p1" }),
+      outboxTarget("product_events", "p1"),
+      deadLetterTarget("product_events", "p1"),
+      featureFlagTarget("pricing-v2"),
+      permissionTarget("product:p1"),
+      roleTarget("catalog-manager"),
+      tenantTarget("tenant_1"),
+      billingTarget("acct_1"),
+      stripeTarget("price", "price_1"),
+      inventoryTarget("sku_1"),
+      catalogTarget("p1"),
+      cartTarget("cart_1"),
+      checkoutTarget("cs_1"),
+      orderTarget("order_1"),
+      workflowTarget("CancelOrder", "order_1"),
+      cronTarget("refresh-product-index"),
+      denoKvTarget("product:p1"),
+      bunSqliteTarget("products", "p1")
+    ];
+
+    const stale = createStaleZero();
+    const builder = stale.mutate("ProductChanged", { productId: "p1" });
+    for (const helper of helpers) {
+      builder.target(helper);
+    }
+    const preview = await builder.preview();
+
+    expect(helpers).toHaveLength(52);
+    expect(new Set(helpers.map((item) => item.adapter)).size).toBeGreaterThan(40);
+    expect(preview.targets).toHaveLength(52);
+    expect(preview.risk?.level).toBe("high");
+  });
+});
