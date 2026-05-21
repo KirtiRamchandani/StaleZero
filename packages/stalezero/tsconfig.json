@@ -1,0 +1,41 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../adapters/memory" },
+    { "path": "../adapters/redis" },
+    { "path": "../adapters/redux" },
+    { "path": "../adapters/react-query" },
+    { "path": "../adapters/rtk-query" },
+    { "path": "../adapters/swr" },
+    { "path": "../adapters/trpc" },
+    { "path": "../adapters/next" },
+    { "path": "../adapters/apollo" },
+    { "path": "../adapters/zustand" },
+    { "path": "../adapters/graphql" },
+    { "path": "../adapters/cloudflare-kv" },
+    { "path": "../adapters/http" },
+    { "path": "../adapters/websocket" },
+    { "path": "../adapters/search" },
+    { "path": "../bus/memory" },
+    { "path": "../bus/redis" },
+    { "path": "../bus/postgres" },
+    { "path": "../bus/http" },
+    { "path": "../bus/kafka" },
+    { "path": "../bus/nats" },
+    { "path": "../devtools" },
+    { "path": "../otel" },
+    { "path": "../snapshot" },
+    { "path": "../github-action" },
+    { "path": "../recipes" },
+    { "path": "../pack-saas" },
+    { "path": "../pack-commerce" },
+    { "path": "../pack-auth" }
+  ]
+}

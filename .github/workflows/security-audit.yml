@@ -1,0 +1,32 @@
+name: Security Audit
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "12 4 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+      - run: npm run verify:licenses
+      - uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json

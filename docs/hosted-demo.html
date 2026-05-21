@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StaleZero Ecommerce Demo</title>
+  <style>
+    body { margin: 0; font: 15px system-ui, sans-serif; background: #f5f7f8; color: #101820; }
+    main { max-width: 980px; margin: 0 auto; padding: 36px; }
+    section { background: white; border: 1px solid #d9dee3; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    pre { overflow: auto; background: #101820; color: #f5f7f8; padding: 16px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>StaleZero Ecommerce Demo</h1>
+    <section>
+      <h2>Mutation</h2>
+      <p><code>ProductPriceChanged</code> updates a product and invalidates Redis, React Query, SWR, Next, WebSocket, search, and HTTP targets.</p>
+    </section>
+    <section>
+      <h2>Receipt</h2>
+      <pre>ProductPriceChanged completed.
+
+Executed:
+- ok redis product:p1 delete
+- ok query ["product","p1"] invalidate
+- ok swr /api/products/p1 revalidate
+- ok next product:p1 revalidate
+- ok socket product:p1 notify
+- ok search products:p1 enqueue
+- ok http https://example.test/hooks publish
+
+Status: success</pre>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+  <rect width="900" height="520" fill="#172026"/>
+  <text x="40" y="64" fill="white" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="700">ProductPriceChanged completed.</text>
+  <g font-family="Inter, system-ui, sans-serif" font-size="18">
+    <text x="40" y="128" fill="#d0d5dd">Affected</text>
+    <text x="40" y="164" fill="#9bd4aa">Product:p_123</text>
+    <text x="40" y="200" fill="#9bd4aa">Category:c_456</text>
+    <text x="360" y="128" fill="#d0d5dd">Invalidated</text>
+    <text x="360" y="164" fill="#9bd4aa">Redis product:p_123 deleted</text>
+    <text x="360" y="200" fill="#9bd4aa">React Query product invalidated</text>
+    <text x="360" y="236" fill="#9bd4aa">SWR API key revalidated</text>
+    <text x="360" y="272" fill="#9bd4aa">Next tag revalidated</text>
+    <text x="360" y="308" fill="#9bd4aa">Search reindex queued</text>
+    <text x="360" y="344" fill="#9bd4aa">Socket room notified</text>
+  </g>
+  <rect x="40" y="416" width="820" height="52" rx="8" fill="#067647">
+    <animate attributeName="opacity" values="0.35;1;0.35" dur="1.8s" repeatCount="indefinite"/>
+  </rect>
+  <text x="72" y="450" fill="white" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="700">Nothing stale remains.</text>
+</svg>

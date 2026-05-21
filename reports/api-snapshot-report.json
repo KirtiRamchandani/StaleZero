@@ -1,0 +1,256 @@
+{
+  "@stalezero/apollo": [
+    "export declare function apolloAdapter(client: ApolloClientLike, options?: ApolloAdapterOptions): Adapter<TargetRef<\"apollo\">>;",
+    "export type ApolloAdapterOptions = {",
+    "export type ApolloCacheLike = {",
+    "export type ApolloClientLike = {"
+  ],
+  "@stalezero/cloudflare-kv": [
+    "export declare function cloudflareKvAdapter(options: CloudflareKvAdapterOptions): Adapter<TargetRef<\"cloudflare-kv\">>;",
+    "export declare function kvPrefixTarget(prefix: string, options?: Omit<TargetRef<\"cloudflare-kv\">, \"adapter\" | \"key\" | \"action\">): TargetRef<\"cloudflare-kv\">;",
+    "export declare function kvTarget(key: string, options?: Omit<TargetRef<\"cloudflare-kv\">, \"adapter\" | \"key\" | \"action\">): TargetRef<\"cloudflare-kv\">;",
+    "export type CloudflareKvAdapterOptions = {",
+    "export type KvNamespaceLike = {"
+  ],
+  "@stalezero/graphql": [
+    "export declare function graphqlAdapter(options: GraphqlAdapterOptions): Adapter<GraphqlTarget>;",
+    "export declare function graphqlEntityTarget(entity: string, id: string, options?: Omit<GraphqlTarget, \"adapter\" | \"key\" | \"action\">): GraphqlTarget;",
+    "export declare function graphqlTarget(operation: string, options?: Omit<GraphqlTarget, \"adapter\" | \"key\" | \"action\"> & {",
+    "export type GraphqlAdapterOptions = {",
+    "export type GraphqlCacheLike = {",
+    "export type GraphqlTarget = TargetRef<\"graphql\"> & {"
+  ],
+  "@stalezero/http": [
+    "export declare function httpAdapter(options?: HttpAdapterOptions): Adapter<TargetRef<\"http\">>;",
+    "export type HttpAdapterOptions = {"
+  ],
+  "@stalezero/memory": [
+    "export declare function memoryAdapter(name?: string): MemoryAdapter;",
+    "export declare function memoryTarget(key: string, options?: Omit<TargetRef<\"memory\">, \"adapter\" | \"key\" | \"action\">): TargetRef<\"memory\">;",
+    "export type MemoryAdapter = Adapter & {",
+    "export type MemoryCall = {"
+  ],
+  "@stalezero/next": [
+    "export declare function nextCacheAdapter(options?: NextCacheAdapterOptions): Adapter<TargetRef<\"next\">>;",
+    "export type NextCacheAdapterOptions = NextCacheFunctions & {",
+    "export type NextCacheFunctions = {"
+  ],
+  "@stalezero/react-query": [
+    "export declare function reactQueryAdapter(client: QueryClientLike, options?: ReactQueryAdapterOptions): Adapter<TargetRef<\"query\">>;",
+    "export type QueryClientLike = {",
+    "export type ReactQueryAdapterOptions = {"
+  ],
+  "@stalezero/redis": [
+    "export declare function redisAdapter(client: RedisClientLike, options?: RedisAdapterOptions): Adapter<TargetRef<\"redis\">>;",
+    "export type RedisAdapterOptions = {",
+    "export type RedisClientLike = {"
+  ],
+  "@stalezero/redux": [
+    "export declare const STALEZERO_INVALIDATE = \"stalezero/invalidate\";",
+    "export declare const STALEZERO_PATCH = \"stalezero/patch\";",
+    "export declare const STALEZERO_REMOVE = \"stalezero/remove\";",
+    "export declare function reduxAdapter(store: ReduxStoreLike, options?: ReduxAdapterOptions): Adapter<TargetRef<\"redux\">>;",
+    "export declare function staleZeroReducer<State extends Record<string, unknown>>(state: State | undefined, action: unknown): State;",
+    "export type ReduxActionMapper = (target: TargetRef<\"redux\">, context: MutationContext) => unknown;",
+    "export type ReduxAdapterOptions = {",
+    "export type ReduxStoreLike = {"
+  ],
+  "@stalezero/rtk-query": [
+    "export declare function rtkQueryAdapter(options: RtkQueryAdapterOptions): Adapter<TargetRef<\"rtk-query\">>;",
+    "export declare function rtkQueryEndpointTarget(endpoint: string, arg?: unknown, options?: RtkQueryTargetOptions): TargetRef<\"rtk-query\">;",
+    "export declare function rtkQueryTarget(tags: unknown[] | string, options?: RtkQueryTargetOptions): TargetRef<\"rtk-query\">;",
+    "export type RtkQueryAdapterOptions = {",
+    "export type RtkQueryApiLike = {",
+    "export type RtkQueryStoreLike = {",
+    "export type RtkQueryTargetOptions = Omit<TargetRef<\"rtk-query\">, \"adapter\" | \"key\" | \"action\"> & {"
+  ],
+  "@stalezero/search": [
+    "export declare function algoliaHandler(client: {",
+    "export declare function meilisearchHandler(client: {",
+    "export declare function searchAdapter(options: SearchAdapterOptions): Adapter<TargetRef<\"search\">>;",
+    "export type SearchAdapterOptions = {",
+    "export type SearchJob = {",
+    "export type SearchQueueLike = {"
+  ],
+  "@stalezero/swr": [
+    "export declare function swrAdapter(mutateOrOptions?: SwrMutateLike | SwrAdapterOptions): Adapter<TargetRef<\"swr\">>;",
+    "export type SwrAdapterOptions = {",
+    "export type SwrMutateLike = (key: unknown, data?: unknown, options?: unknown) => Promise<unknown> | unknown;"
+  ],
+  "@stalezero/trpc": [
+    "export declare function trpcAdapter(options: TrpcAdapterOptions): Adapter<TargetRef<\"trpc\">>;",
+    "export declare function trpcTarget(path: string | string[], options?: TrpcTargetOptions): TargetRef<\"trpc\">;",
+    "export type TrpcAdapterOptions = {",
+    "export type TrpcTargetOptions = Omit<TargetRef<\"trpc\">, \"adapter\" | \"key\" | \"action\"> & {",
+    "export type TrpcUtilsLike = Record<string, unknown>;"
+  ],
+  "@stalezero/websocket": [
+    "export declare function websocketAdapter(options: SocketIoLike | WebSocketAdapterOptions): Adapter<TargetRef<\"socket\">>;",
+    "export type SocketIoLike = {",
+    "export type WebSocketAdapterOptions = {",
+    "export type WsClientLike = {"
+  ],
+  "@stalezero/zustand": [
+    "export declare function zustandAdapter<State extends Record<string, unknown>>(store: ZustandStoreLike<State>, options?: ZustandAdapterOptions<State>): Adapter<TargetRef<\"zustand\">>;",
+    "export type ZustandAdapterOptions<State extends Record<string, unknown> = Record<string, unknown>> = {",
+    "export type ZustandStoreLike<State extends Record<string, unknown> = Record<string, unknown>> = {"
+  ],
+  "@stalezero/http-bus": [
+    "export declare function createHttpBusHandler(handler: (event: StaleEvent) => Promise<void> | void, options?: HttpBusHandlerOptions): (request: Request) => Promise<Response>;",
+    "export declare function httpWebhookBus(options: HttpBusOptions): EventBus;",
+    "export type HttpBusHandlerOptions = {",
+    "export type HttpBusOptions = {"
+  ],
+  "@stalezero/kafka-bus": [
+    "export declare function kafkaBus(options: {",
+    "export type KafkaConsumerLike = {",
+    "export type KafkaProducerLike = {"
+  ],
+  "@stalezero/memory-bus": [
+    "export declare function memoryBus(options?: string | MemoryBusOptions): MemoryBus;",
+    "export type MemoryBus = EventBus & {",
+    "export type MemoryBusOptions = {"
+  ],
+  "@stalezero/nats-bus": [
+    "export declare function natsBus(options: {",
+    "export type NatsConnectionLike = {"
+  ],
+  "@stalezero/postgres-bus": [
+    "export declare const POSTGRES_OUTBOX_SCHEMA = \"\\nCREATE TABLE IF NOT EXISTS stalezero_outbox (\\n  id UUID PRIMARY KEY,\\n  app TEXT NOT NULL,\\n  mutation TEXT NOT NULL,\\n  payload JSONB NOT NULL,\\n  affected JSONB NOT NULL,\\n  status TEXT NOT NULL DEFAULT 'pending',\\n  attempts INT NOT NULL DEFAULT 0,\\n  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),\\n  processed_at TIMESTAMPTZ\\n);\\n\";",
+    "export declare function cleanupOutbox(client: PgClientLike, options?: {",
+    "export declare function fetchPendingOutboxEvents(client: PgClientLike, options?: {",
+    "export declare function insertOutboxEvent(client: PgClientLike, event: StaleEvent): Promise<void>;",
+    "export declare function markOutboxEventFailed(client: PgClientLike, id: string): Promise<void>;",
+    "export declare function markOutboxEventProcessed(client: PgClientLike, id: string): Promise<void>;",
+    "export declare function postgresNotifyBus(options: {",
+    "export declare function replayOutbox(client: PgClientLike, handler: (event: StaleEvent) => Promise<void> | void, options?: {",
+    "export type PgClientLike = {"
+  ],
+  "@stalezero/redis-bus": [
+    "export declare function redisPubSubBus(options: {",
+    "export declare function redisStreamBus(options: {",
+    "export type RedisPubSubClientLike = {",
+    "export type RedisStreamClientLike = {"
+  ],
+  "@stalezero/cli": [
+    "export {};"
+  ],
+  "@stalezero/core": [
+    "export type { Adapter, ApprovalConfig, AuditEvent, BlackboxConfig, BlackboxEntry, ChangedOptions, CommandDefinition, CompiledManifest, ConsistencyMode, CoalesceConfig, DistributedConfig, EntityRef, EventBus, ExecutionConfig, ExecutionResult, ExecutionStatus, JsonPrimitive, JsonValue, Manifest, MaybePromise, MirrorDefinition, MutationContract, MutationContractResult, MutationContext, MutationDefinition, MutationSnapshot, MutationSnapshotData, Preview, RateLimitConfig, Receipt, ReceiptConfig, ReceiptSnapshot, ReceiptStatus, ReceiptStore, RecipeInstaller, RedactionOptions, ReplayMode, ReplayResult, ResourceDefinition, RiskConfig, RiskLevel, RiskResult, SandboxConfig, SchemaLike, SecurityConfig, SloConfig, SloEvaluation, SnapshotDiff, SnapshotDiffData, StaleEvent, StaleZeroHooks, StaleZeroConfig, StudioApi, StudioOptions, TemplateDefinition, TenantConfig, TargetAction, TargetRef, WorkflowResult, WorkflowStep, WorkflowStepRunner, WhyResult } from \"./types.js\";",
+    "export type { CommandInput, MutationInput, ReceiptsApi, StaleZero } from \"./engine.js\";",
+    "export { MemoryReceiptStore } from \"./store.js\";",
+    "export { apolloTarget, customTarget, entity, httpTarget, jobTarget, nextPathTarget, nextTagTarget, queryTarget, redisPatternTarget, redisTarget, reduxTarget, searchTarget, socketTarget, swrTarget, target, zustandTarget } from \"./targets.js\";",
+    "export { createId } from \"./ids.js\";",
+    "export { createReceipt, receiptToText } from \"./receipt.js\";",
+    "export { createStaleZero, QuickMutationBuilder, StaleZeroEngine, StaleZeroExecutionError } from \"./engine.js\";"
+  ],
+  "create-stalezero-adapter-template": [
+    "export declare function adapterTemplateFiles(options?: AdapterTemplateOptions): TemplateFile[];",
+    "export declare function writeAdapterTemplate(directory: string, options?: AdapterTemplateOptions): Promise<TemplateFile[]>;",
+    "export type AdapterTemplateOptions = {",
+    "export type TemplateFile = {"
+  ],
+  "@stalezero/devtools": [
+    "export declare const createNextDevtoolsHandler: typeof createDevtoolsWebHandler;",
+    "export declare function StaleZeroPanel(props: {",
+    "export declare function createDevtoolsHandler(stale: StaleZero): (request: unknown, response?: unknown) => Promise<unknown>;",
+    "export declare function createDevtoolsWebHandler(stale: StaleZero, options?: DevtoolsOptions): (request: Request) => Promise<Response>;",
+    "export declare function createExpressDevtoolsHandler(stale: StaleZero, options?: DevtoolsOptions): (request: {",
+    "export declare function createFastifyDevtoolsHandler(stale: StaleZero, options?: DevtoolsOptions): (request: {",
+    "export declare function createReactDevtoolsPanel(react: {",
+    "export declare function devtoolsSnapshot(stale: StaleZero, options?: DevtoolsOptions): Promise<DevtoolsSnapshot>;",
+    "export declare function renderStaticDevtoolsHtml(snapshot: DevtoolsSnapshot): string;",
+    "export type DevtoolsOptions = {",
+    "export type DevtoolsSnapshot = {"
+  ],
+  "@stalezero/github-action": [
+    "export declare function diffManifests(before: Manifest, after: Manifest): ManifestDiff;",
+    "export declare function inspectManifestSecurity(manifest: Manifest): SecurityFinding[];",
+    "export declare function mutationDiffMarkdown(diff: ManifestDiff): string;",
+    "export declare function securityInspectorMarkdown(findings: SecurityFinding[]): string;",
+    "export type ManifestDiff = {",
+    "export type SecurityFinding = {"
+  ],
+  "@stalezero/otel": [
+    "export declare const eventNames: {",
+    "export declare const spanNames: {",
+    "export declare function applyReceiptToSpan(span: SpanLike, receipt: Receipt): void;",
+    "export declare function createOpenTelemetryHooks(tracer: TracerLike): StaleZeroHooks;",
+    "export declare function receiptAttributes(receipt: Receipt): Record<string, string | number | boolean>;",
+    "export type SpanLike = {",
+    "export type TracerLike = {"
+  ],
+  "@stalezero/pack-auth": [
+    "export declare function authPack(stale: StaleZero): void;",
+    "export default authPack;"
+  ],
+  "@stalezero/pack-commerce": [
+    "export declare function commercePack(stale: StaleZero): void;",
+    "export default commercePack;"
+  ],
+  "@stalezero/pack-saas": [
+    "export declare function saasPack(stale: StaleZero): void;",
+    "export default saasPack;"
+  ],
+  "@stalezero/recipes": [
+    "export declare const recipe: {",
+    "export declare const template: {",
+    "export type ProductCatalogRecipeOptions = {",
+    "export type UserProfileRecipeOptions = {",
+    "export {};"
+  ],
+  "@stalezero/snapshot": [
+    "export declare function compareSnapshotFiles(stale: Pick<StaleZero, \"compareSnapshots\">, beforePath: string, afterPath: string): Promise<SnapshotDiff>;",
+    "export declare function createMutationSnapshot(stale: Pick<StaleZero, \"snapshot\">, mutation: string, input: unknown): Promise<MutationSnapshot>;",
+    "export declare function readMutationSnapshot(path: string): Promise<MutationSnapshotData>;",
+    "export declare function snapshotDiffMarkdown(diff: Pick<SnapshotDiff, \"mutation\" | \"added\" | \"removed\" | \"risk\">): string;",
+    "export declare function snapshotMarkdown(snapshot: MutationSnapshotData): string;",
+    "export declare function writeMutationSnapshot(stale: Pick<StaleZero, \"snapshot\">, mutation: string, input: unknown, options?: SnapshotFileOptions): Promise<{",
+    "export type SnapshotFileOptions = {"
+  ],
+  "stalezero": [
+    "export * from \"@stalezero/apollo\";",
+    "export * from \"@stalezero/cloudflare-kv\";",
+    "export * from \"@stalezero/core\";",
+    "export * from \"@stalezero/devtools\";",
+    "export * from \"@stalezero/github-action\";",
+    "export * from \"@stalezero/graphql\";",
+    "export * from \"@stalezero/http\";",
+    "export * from \"@stalezero/http-bus\";",
+    "export * from \"@stalezero/kafka-bus\";",
+    "export * from \"@stalezero/memory\";",
+    "export * from \"@stalezero/memory-bus\";",
+    "export * from \"@stalezero/nats-bus\";",
+    "export * from \"@stalezero/next\";",
+    "export * from \"@stalezero/otel\";",
+    "export * from \"@stalezero/pack-auth\";",
+    "export * from \"@stalezero/pack-commerce\";",
+    "export * from \"@stalezero/pack-saas\";",
+    "export * from \"@stalezero/postgres-bus\";",
+    "export * from \"@stalezero/react-query\";",
+    "export * from \"@stalezero/recipes\";",
+    "export * from \"@stalezero/redis\";",
+    "export * from \"@stalezero/redis-bus\";",
+    "export * from \"@stalezero/redux\";",
+    "export * from \"@stalezero/rtk-query\";",
+    "export * from \"@stalezero/search\";",
+    "export * from \"@stalezero/snapshot\";",
+    "export * from \"@stalezero/swr\";",
+    "export * from \"@stalezero/trpc\";",
+    "export * from \"@stalezero/websocket\";",
+    "export * from \"@stalezero/zustand\";"
+  ],
+  "@stalezero/testing": [
+    "export declare const jestMatchers: {",
+    "export declare const vitestMatchers: {",
+    "export declare function adapterContractSuite(options: AdapterContractOptions): Array<{",
+    "export declare function adapterSpy(name?: string): MemoryAdapter;",
+    "export declare function createEcommerceFixture(): {",
+    "export declare function createTestStaleZero(): TestStaleZero;",
+    "export declare function expectReceipt(receipt: Receipt): {",
+    "export declare function fakeReceiptStore(): ReceiptStore & {",
+    "export declare function runAdapterContract(adapterOrOptions: Adapter | AdapterContractOptions): Promise<void>;",
+    "export type AdapterContractOptions = {",
+    "export type TestStaleZero = {"
+  ]
+}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StaleZero</title>
+  <style>
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; color: #101820; background: #f5f7f8; }
+    header { min-height: 78vh; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; padding: 56px; }
+    h1 { font-size: 64px; margin: 0 0 18px; }
+    p { font-size: 20px; line-height: 1.6; max-width: 660px; }
+    img { max-width: 100%; border-radius: 18px; box-shadow: 0 22px 80px rgb(16 24 32 / 18%); }
+    code { background: white; border: 1px solid #d9dee3; border-radius: 6px; padding: 2px 6px; }
+    main { padding: 0 56px 64px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .tile { background: white; border: 1px solid #d9dee3; border-radius: 8px; padding: 18px; }
+    @media (max-width: 800px) { header, .grid { grid-template-columns: 1fr; } h1 { font-size: 42px; } header, main { padding: 28px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <section>
+      <h1>StaleZero</h1>
+      <p>One mutation. Zero stale state. Coordinate Redis, React Query, SWR, Redux, Next cache APIs, sockets, queues, search, and webhooks with previewable receipts.</p>
+      <p><code>npm install stalezero</code></p>
+    </section>
+    <img src="../docs/assets/hero.svg" alt="Receipt and blast-radius graph">
+  </header>
+  <main>
+    <section class="grid">
+      <div class="tile"><h2>Preview</h2><p>See blast radius before execution.</p></div>
+      <div class="tile"><h2>Run</h2><p>Execute adapters with timeouts, retries, priority, and concurrency limits.</p></div>
+      <div class="tile"><h2>Receipt</h2><p>Keep one support artifact for every target and failure.</p></div>
+    </section>
+  </main>
+</body>
+</html>

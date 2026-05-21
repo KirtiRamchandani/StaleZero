@@ -1,0 +1,28 @@
+name: Release Dry Run
+
+on:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - packages/**
+      - scripts/**
+      - .github/workflows/release*.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run release:dry-run

@@ -1,0 +1,54 @@
+{
+  "name": "@stalezero/nats-bus",
+  "version": "0.1.0",
+  "description": "NATS event bus adapter for StaleZero.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@stalezero/core": "0.1.0"
+  },
+  "peerDependencies": {
+    "nats": ">=2"
+  },
+  "peerDependenciesMeta": {
+    "nats": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stalezero/stalezero.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stalezero/stalezero/issues"
+  },
+  "homepage": "https://github.com/stalezero/stalezero#readme",
+  "keywords": [
+    "cache",
+    "invalidation",
+    "typescript",
+    "javascript",
+    "state",
+    "redis",
+    "react-query",
+    "swr",
+    "nextjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

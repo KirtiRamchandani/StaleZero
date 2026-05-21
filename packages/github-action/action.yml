@@ -1,0 +1,12 @@
+name: StaleZero Mutation Diff
+description: Comment with mutation blast-radius changes.
+inputs:
+  manifest-before:
+    description: Baseline manifest path
+    required: true
+  manifest-after:
+    description: Pull request manifest path
+    required: true
+runs:
+  using: node20
+  main: dist/index.js

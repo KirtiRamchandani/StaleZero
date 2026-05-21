@@ -1,0 +1,86 @@
+{
+  "results": [
+    {
+      "name": "preview: 10 mutations / 100 targets",
+      "iterations": 50,
+      "minMs": 0.050700000000006185,
+      "p50Ms": 0.0846000000000231,
+      "p95Ms": 0.5556000000000267,
+      "maxMs": 8.378099999999904
+    },
+    {
+      "name": "changed no adapters: 10 mutations / 100 targets",
+      "iterations": 50,
+      "minMs": 0.0342000000000553,
+      "p50Ms": 0.056199999999989814,
+      "p95Ms": 0.4621999999999389,
+      "maxMs": 3.2291000000000167
+    },
+    {
+      "name": "changed fake adapters: 10 mutations / 100 targets",
+      "iterations": 50,
+      "minMs": 0.13740000000007058,
+      "p50Ms": 0.2200999999998885,
+      "p95Ms": 0.8473999999999933,
+      "maxMs": 2.5469000000000506
+    },
+    {
+      "name": "receipt generation overhead",
+      "iterations": 50,
+      "minMs": 0.028299999999944703,
+      "p50Ms": 0.040300000000002,
+      "p95Ms": 0.1568000000000893,
+      "maxMs": 1.9215000000000373
+    },
+    {
+      "name": "dedupe overhead: 1,000 duplicate targets",
+      "iterations": 25,
+      "minMs": 0.8768000000000029,
+      "p50Ms": 1.169300000000021,
+      "p95Ms": 2.425200000000018,
+      "maxMs": 2.7164000000000215
+    },
+    {
+      "name": "preview: 100 mutations / 1,000 targets",
+      "iterations": 25,
+      "minMs": 0.06949999999994816,
+      "p50Ms": 0.241800000000012,
+      "p95Ms": 0.3270999999999731,
+      "maxMs": 0.33190000000001874
+    },
+    {
+      "name": "preview: 1,000 mutations / 10,000 targets",
+      "iterations": 10,
+      "minMs": 0.4902000000000726,
+      "p50Ms": 0.5408999999999651,
+      "p95Ms": 1.2850000000000819,
+      "maxMs": 1.2850000000000819
+    },
+    {
+      "name": "manifest generation: 1,000 mutations / 10,000 targets",
+      "iterations": 10,
+      "minMs": 246.0635000000002,
+      "p50Ms": 386.70979999999963,
+      "p95Ms": 427.4367,
+      "maxMs": 427.4367
+    },
+    {
+      "name": "manifest loading: 1,000 mutations / 10,000 targets",
+      "iterations": 10,
+      "minMs": 0.00930000000016662,
+      "p50Ms": 0.013699999999971624,
+      "p95Ms": 0.34300000000030195,
+      "maxMs": 0.34300000000030195
+    },
+    {
+      "name": "cold import: @stalezero/core",
+      "iterations": 5,
+      "minMs": 1.8297999999999774,
+      "p50Ms": 2.0551000000000386,
+      "p95Ms": 2.9375,
+      "maxMs": 2.9375
+    }
+  ],
+  "coreEntryBytes": 533,
+  "heapDeltaBytes": 15300936
+}

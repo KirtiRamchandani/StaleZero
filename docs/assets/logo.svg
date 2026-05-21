@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="StaleZero logo">
+  <rect width="320" height="320" rx="52" fill="#101820"/>
+  <path d="M78 104h164l-57 56 57 56H78l57-56-57-56Z" fill="#f5f7f8"/>
+  <circle cx="160" cy="160" r="34" fill="#10b981"/>
+  <circle cx="160" cy="160" r="14" fill="#101820"/>
+</svg>

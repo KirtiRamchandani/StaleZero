@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.stalezero/
+.pack/
+*.tsbuildinfo
+*.log
+.env
+.DS_Store
+packages/**/src/*.js
+packages/**/src/*.js.map
+packages/**/src/*.d.ts
+packages/**/src/*.d.ts.map

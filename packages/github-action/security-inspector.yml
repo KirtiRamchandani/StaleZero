@@ -1,0 +1,5 @@
+name: StaleZero Security Inspector
+description: Report unsafe mutation targets and missing safety controls.
+runs:
+  using: node20
+  main: dist/index.js

@@ -1,0 +1,9 @@
+{
+  "rows": [
+    [
+      "npm audit --audit-level=moderate",
+      "pass",
+      "found 0 vulnerabilities"
+    ]
+  ]
+}

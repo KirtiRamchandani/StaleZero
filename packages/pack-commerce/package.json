@@ -1,0 +1,46 @@
+{
+  "name": "@stalezero/pack-commerce",
+  "version": "0.1.0",
+  "description": "Commerce domain mutation pack for StaleZero.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@stalezero/core": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stalezero/stalezero.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stalezero/stalezero/issues"
+  },
+  "homepage": "https://github.com/stalezero/stalezero#readme",
+  "keywords": [
+    "cache",
+    "invalidation",
+    "typescript",
+    "javascript",
+    "state",
+    "redis",
+    "react-query",
+    "swr",
+    "nextjs"
+  ]
+}

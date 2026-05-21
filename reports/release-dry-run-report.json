@@ -1,0 +1,15 @@
+{
+  "rows": [
+    [
+      "npm pack all packages",
+      "pass",
+      "76401ms"
+    ],
+    [
+      "npm publish --workspaces --provenance --dry-run",
+      "pass",
+      "dry-run succeeded"
+    ]
+  ],
+  "publishCode": 0
+}

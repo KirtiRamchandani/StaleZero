@@ -1,0 +1,958 @@
+[
+  {
+    "package": "@stalezero/apollo",
+    "version": "0.1.0",
+    "filename": "stalezero-apollo-0.1.0.tgz",
+    "unpackedSize": 42011,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/cloudflare-kv",
+    "version": "0.1.0",
+    "filename": "stalezero-cloudflare-kv-0.1.0.tgz",
+    "unpackedSize": 43657,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/graphql",
+    "version": "0.1.0",
+    "filename": "stalezero-graphql-0.1.0.tgz",
+    "unpackedSize": 42267,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/http",
+    "version": "0.1.0",
+    "filename": "stalezero-http-0.1.0.tgz",
+    "unpackedSize": 41429,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/memory",
+    "version": "0.1.0",
+    "filename": "stalezero-memory-0.1.0.tgz",
+    "unpackedSize": 38670,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/next",
+    "version": "0.1.0",
+    "filename": "stalezero-next-0.1.0.tgz",
+    "unpackedSize": 40488,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/react-query",
+    "version": "0.1.0",
+    "filename": "stalezero-react-query-0.1.0.tgz",
+    "unpackedSize": 41402,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/redis",
+    "version": "0.1.0",
+    "filename": "stalezero-redis-0.1.0.tgz",
+    "unpackedSize": 46168,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/redux",
+    "version": "0.1.0",
+    "filename": "stalezero-redux-0.1.0.tgz",
+    "unpackedSize": 43500,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/rtk-query",
+    "version": "0.1.0",
+    "filename": "stalezero-rtk-query-0.1.0.tgz",
+    "unpackedSize": 43940,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/search",
+    "version": "0.1.0",
+    "filename": "stalezero-search-0.1.0.tgz",
+    "unpackedSize": 42855,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/swr",
+    "version": "0.1.0",
+    "filename": "stalezero-swr-0.1.0.tgz",
+    "unpackedSize": 40124,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/trpc",
+    "version": "0.1.0",
+    "filename": "stalezero-trpc-0.1.0.tgz",
+    "unpackedSize": 41696,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/websocket",
+    "version": "0.1.0",
+    "filename": "stalezero-websocket-0.1.0.tgz",
+    "unpackedSize": 42896,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/zustand",
+    "version": "0.1.0",
+    "filename": "stalezero-zustand-0.1.0.tgz",
+    "unpackedSize": 40971,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/http-bus",
+    "version": "0.1.0",
+    "filename": "stalezero-http-bus-0.1.0.tgz",
+    "unpackedSize": 46019,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/kafka-bus",
+    "version": "0.1.0",
+    "filename": "stalezero-kafka-bus-0.1.0.tgz",
+    "unpackedSize": 41092,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/memory-bus",
+    "version": "0.1.0",
+    "filename": "stalezero-memory-bus-0.1.0.tgz",
+    "unpackedSize": 41904,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/nats-bus",
+    "version": "0.1.0",
+    "filename": "stalezero-nats-bus-0.1.0.tgz",
+    "unpackedSize": 39597,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/postgres-bus",
+    "version": "0.1.0",
+    "filename": "stalezero-postgres-bus-0.1.0.tgz",
+    "unpackedSize": 46422,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/redis-bus",
+    "version": "0.1.0",
+    "filename": "stalezero-redis-bus-0.1.0.tgz",
+    "unpackedSize": 49014,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/cli",
+    "version": "0.1.0",
+    "filename": "stalezero-cli-0.1.0.tgz",
+    "unpackedSize": 80937,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/core",
+    "version": "0.1.0",
+    "filename": "stalezero-core-0.1.0.tgz",
+    "unpackedSize": 258109,
+    "fileCount": 32,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/engine.d.ts.map",
+      "dist/engine.js.map",
+      "dist/ids.d.ts.map",
+      "dist/ids.js.map",
+      "dist/index.d.ts.map",
+      "dist/index.js.map",
+      "dist/receipt.d.ts.map",
+      "dist/receipt.js.map",
+      "dist/store.d.ts.map",
+      "dist/store.js.map",
+      "dist/targets.d.ts.map",
+      "dist/targets.js.map",
+      "dist/types.d.ts.map",
+      "dist/types.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/engine.d.ts",
+      "dist/engine.d.ts.map",
+      "dist/engine.js",
+      "dist/engine.js.map",
+      "dist/ids.d.ts",
+      "dist/ids.d.ts.map",
+      "dist/ids.js",
+      "dist/ids.js.map",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "dist/receipt.d.ts",
+      "dist/receipt.d.ts.map",
+      "dist/receipt.js",
+      "dist/receipt.js.map",
+      "dist/store.d.ts",
+      "dist/store.d.ts.map",
+      "dist/store.js",
+      "dist/store.js.map",
+      "dist/targets.d.ts",
+      "dist/targets.d.ts.map",
+      "dist/targets.js",
+      "dist/targets.js.map",
+      "dist/types.d.ts",
+      "dist/types.d.ts.map",
+      "dist/types.js",
+      "dist/types.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "create-stalezero-adapter-template",
+    "version": "0.1.0",
+    "filename": "create-stalezero-adapter-template-0.1.0.tgz",
+    "unpackedSize": 45803,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/devtools",
+    "version": "0.1.0",
+    "filename": "stalezero-devtools-0.1.0.tgz",
+    "unpackedSize": 81703,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/github-action",
+    "version": "0.1.0",
+    "filename": "stalezero-github-action-0.1.0.tgz",
+    "unpackedSize": 46795,
+    "fileCount": 10,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "action.yml",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json",
+      "security-inspector.yml"
+    ]
+  },
+  {
+    "package": "@stalezero/otel",
+    "version": "0.1.0",
+    "filename": "stalezero-otel-0.1.0.tgz",
+    "unpackedSize": 44728,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/pack-auth",
+    "version": "0.1.0",
+    "filename": "stalezero-pack-auth-0.1.0.tgz",
+    "unpackedSize": 38761,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/pack-commerce",
+    "version": "0.1.0",
+    "filename": "stalezero-pack-commerce-0.1.0.tgz",
+    "unpackedSize": 39084,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/pack-saas",
+    "version": "0.1.0",
+    "filename": "stalezero-pack-saas-0.1.0.tgz",
+    "unpackedSize": 37964,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/recipes",
+    "version": "0.1.0",
+    "filename": "stalezero-recipes-0.1.0.tgz",
+    "unpackedSize": 48151,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/snapshot",
+    "version": "0.1.0",
+    "filename": "stalezero-snapshot-0.1.0.tgz",
+    "unpackedSize": 42056,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "stalezero",
+    "version": "0.1.0",
+    "filename": "stalezero-0.1.0.tgz",
+    "unpackedSize": 45434,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  },
+  {
+    "package": "@stalezero/testing",
+    "version": "0.1.0",
+    "filename": "stalezero-testing-0.1.0.tgz",
+    "unpackedSize": 51211,
+    "fileCount": 8,
+    "hasDist": true,
+    "hasDts": true,
+    "hasReadme": true,
+    "hasLicense": true,
+    "testFiles": [],
+    "sourceMaps": [
+      "dist/index.d.ts.map",
+      "dist/index.js.map"
+    ],
+    "absolutePaths": [],
+    "files": [
+      "LICENSE",
+      "README.md",
+      "dist/.tsbuildinfo",
+      "dist/index.d.ts",
+      "dist/index.d.ts.map",
+      "dist/index.js",
+      "dist/index.js.map",
+      "package.json"
+    ]
+  }
+]

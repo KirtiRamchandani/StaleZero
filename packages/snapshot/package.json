@@ -1,0 +1,46 @@
+{
+  "name": "@stalezero/snapshot",
+  "version": "0.1.0",
+  "description": "Snapshot and diff helpers for StaleZero mutation blast radius checks.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@stalezero/core": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stalezero/stalezero.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bugs": {
+    "url": "https://github.com/stalezero/stalezero/issues"
+  },
+  "homepage": "https://github.com/stalezero/stalezero#readme",
+  "keywords": [
+    "cache",
+    "invalidation",
+    "typescript",
+    "javascript",
+    "state",
+    "redis",
+    "react-query",
+    "swr",
+    "nextjs"
+  ]
+}

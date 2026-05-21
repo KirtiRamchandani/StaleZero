@@ -1,0 +1,31 @@
+{
+  "temp": "C:\\Users\\kirti\\AppData\\Local\\Temp\\stalezero-clean-1779332061532",
+  "rows": [
+    [
+      "npm install",
+      "pass",
+      "6785ms"
+    ],
+    [
+      "npm run typecheck",
+      "pass",
+      "11595ms"
+    ],
+    [
+      "npm test",
+      "pass",
+      "3858ms"
+    ],
+    [
+      "npm run build",
+      "pass",
+      "1308ms"
+    ],
+    [
+      "npm run check",
+      "pass",
+      "9472ms"
+    ]
+  ],
+  "generatedAt": "2026-05-21T02:54:55.778Z"
+}

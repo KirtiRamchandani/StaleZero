@@ -1,0 +1,75 @@
+{
+  "name": "stalezero",
+  "version": "0.1.0",
+  "description": "Coordinate every cache, state store, view, and client that must react when data changes.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@stalezero/core": "0.1.0",
+    "@stalezero/memory": "0.1.0",
+    "@stalezero/redis": "0.1.0",
+    "@stalezero/redux": "0.1.0",
+    "@stalezero/react-query": "0.1.0",
+    "@stalezero/rtk-query": "0.1.0",
+    "@stalezero/swr": "0.1.0",
+    "@stalezero/trpc": "0.1.0",
+    "@stalezero/next": "0.1.0",
+    "@stalezero/apollo": "0.1.0",
+    "@stalezero/zustand": "0.1.0",
+    "@stalezero/graphql": "0.1.0",
+    "@stalezero/cloudflare-kv": "0.1.0",
+    "@stalezero/http": "0.1.0",
+    "@stalezero/websocket": "0.1.0",
+    "@stalezero/search": "0.1.0",
+    "@stalezero/memory-bus": "0.1.0",
+    "@stalezero/redis-bus": "0.1.0",
+    "@stalezero/postgres-bus": "0.1.0",
+    "@stalezero/http-bus": "0.1.0",
+    "@stalezero/kafka-bus": "0.1.0",
+    "@stalezero/nats-bus": "0.1.0",
+    "@stalezero/devtools": "0.1.0",
+    "@stalezero/otel": "0.1.0",
+    "@stalezero/snapshot": "0.1.0",
+    "@stalezero/github-action": "0.1.0",
+    "@stalezero/recipes": "0.1.0",
+    "@stalezero/pack-saas": "0.1.0",
+    "@stalezero/pack-commerce": "0.1.0",
+    "@stalezero/pack-auth": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stalezero/stalezero.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stalezero/stalezero/issues"
+  },
+  "homepage": "https://github.com/stalezero/stalezero#readme",
+  "keywords": [
+    "cache",
+    "invalidation",
+    "typescript",
+    "javascript",
+    "state",
+    "redis",
+    "react-query",
+    "swr",
+    "nextjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

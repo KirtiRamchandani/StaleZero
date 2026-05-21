@@ -1,0 +1,27 @@
+# Examples Run Report
+
+| Example | Result | Output |
+| --- | --- | --- |
+| minimal-node | pass | success |
+| memory-adapter | pass | 1 call |
+| redis-fake-query | pass | user:123,["user","123"] |
+| next-react-query-redis | pass | 3 targets |
+| swr | pass | /api/users/123 |
+| redux-toolkit | pass | users.byId.123 |
+| zustand | pass | stale |
+| websocket-notification | pass | product:123:product.price.changed |
+| search-reindex | pass | products |
+| http-webhook-bus | pass | 1 event |
+| ecommerce-demo | pass | success:product:p1 |
+| distributed-redis-pubsub | pass | Distributed |
+| redis-streams | pass | RedisStreamEvent |
+| postgres-outbox | pass | 1 pending |
+| kafka-event-bus | pass | KafkaEvent |
+| cloudflare-worker-kv | pass | user:123 |
+| serverless-function | pass | https://example.test/serverless |
+| trpc-mutation | pass | user.byId |
+| graphql-mutation | pass | User:123 |
+| prisma-middleware | pass | user:123 |
+| drizzle-helper | pass | order:o1 |
+| supabase-firebase-source-events | pass | RealtimeSourceChanged |
+| vercel-edge-cache | pass | product:edge |

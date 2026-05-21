@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" role="img" aria-label="Animated devtools graph">
+  <rect width="760" height="420" fill="#101820"/>
+  <g font-family="Inter,system-ui,sans-serif" font-size="18">
+    <rect x="44" y="64" width="230" height="58" rx="10" fill="#fff"/>
+    <text x="68" y="100" fill="#101820">ProductPriceChanged</text>
+    <rect x="456" y="38" width="210" height="48" rx="10" fill="#d1fae5"/>
+    <text x="482" y="69" fill="#064e3b">RedisProduct</text>
+    <rect x="456" y="122" width="210" height="48" rx="10" fill="#d1fae5"/>
+    <text x="482" y="153" fill="#064e3b">QueryProduct</text>
+    <rect x="456" y="206" width="210" height="48" rx="10" fill="#d1fae5"/>
+    <text x="482" y="237" fill="#064e3b">NextProduct</text>
+    <rect x="456" y="290" width="210" height="48" rx="10" fill="#d1fae5"/>
+    <text x="482" y="321" fill="#064e3b">SocketProduct</text>
+  </g>
+  <g stroke="#10b981" stroke-width="4" fill="none" stroke-linecap="round">
+    <path d="M274 93 C340 62 390 62 456 62">
+      <animate attributeName="stroke-dasharray" values="0 500;500 0;500 0" dur="2.4s" repeatCount="indefinite"/>
+    </path>
+    <path d="M274 93 C340 146 390 146 456 146">
+      <animate attributeName="stroke-dasharray" values="0 500;0 500;500 0" dur="2.4s" repeatCount="indefinite"/>
+    </path>
+    <path d="M274 93 C340 230 390 230 456 230">
+      <animate attributeName="stroke-dasharray" values="0 500;0 500;500 0" dur="2.4s" begin=".35s" repeatCount="indefinite"/>
+    </path>
+    <path d="M274 93 C340 314 390 314 456 314">
+      <animate attributeName="stroke-dasharray" values="0 500;0 500;500 0" dur="2.4s" begin=".7s" repeatCount="indefinite"/>
+    </path>
+  </g>
+</svg>
