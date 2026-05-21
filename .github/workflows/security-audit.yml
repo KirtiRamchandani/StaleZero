@@ -14,19 +14,19 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=moderate
       - run: npm run verify:licenses
-      - uses: anchore/sbom-action@v0
+      - uses: anchore/sbom-action@v0.24.0
         with:
           format: spdx-json
           output-file: sbom.spdx.json
-      - uses: google/osv-scanner-action@v1
+      - uses: google/osv-scanner-action@v2.3.8
         with:
           scan-args: |-
             --lockfile=package-lock.json

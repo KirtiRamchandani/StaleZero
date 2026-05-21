@@ -2,6 +2,8 @@
 
 | Package | License | Status |
 | --- | --- | --- |
+| @emnapi/core | MIT | pass |
+| @emnapi/runtime | MIT | pass |
 | @emnapi/wasi-threads | MIT | pass |
 | @esbuild/aix-ppc64 | MIT | pass |
 | @esbuild/android-arm | MIT | pass |
