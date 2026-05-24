@@ -101,8 +101,95 @@ describe("StaleZero operations layer", () => {
     expect(impact.level).toBe("low");
     expect(cost.level).toBe("low");
     expect(canary.readinessScore).toBeGreaterThan(80);
-    expect(receipt.proofs?.[0]?.status).toBe("passed");
+    expect(receipt.proofs?.[0]?.status).toBe("confirmed");
     expect(diagnostics.some((item) => item.code === "missing-owner")).toBe(false);
+  });
+
+  it("lints the graph, proves receipts, explains stale entities, and reports score badges", async () => {
+    const stale = createStaleZero();
+    stale.use({
+      name: "redis",
+      execute: () => undefined,
+      verify: () => ({ ok: true, evidence: { absent: true } })
+    });
+    stale.mutation("UserUpdated", {
+      owner: "platform-team",
+      schema: { parse: (input) => input as { userId: string } },
+      affects: (input: { userId: string }) => [entity("User", input.userId)],
+      targets: (input: { userId: string }) => [redisTarget(`user:${input.userId}`, { owner: "platform-team" })]
+    });
+    const receipt = await stale.changed("UserUpdated", { userId: "123" }, { prove: true });
+
+    const proof = await stale.prove(receipt, { ci: true });
+    const lint = await stale.lint({ ci: true });
+    const explain = await stale.explainStale("User:123", { input: { userId: "123" } });
+    const score = await stale.score();
+    const badge = await stale.badge();
+
+    expect(proof.proofStatus).toBe("confirmed");
+    expect(lint.failed).toBe(0);
+    expect(explain.likelyCause).toContain("No obvious");
+    expect(score.score).toBeGreaterThan(80);
+    expect(badge.svg).toContain("<svg");
+  });
+
+  it("supports field routes, freshness budgets, profiles, rollout, shadow, and human reports", async () => {
+    const calls: string[] = [];
+    const stale = createStaleZero({ execution: { defaultConsistency: "strict" } });
+    stale.use({
+      name: "redis",
+      execute: (targetRef) => {
+        calls.push(targetRef.key);
+      }
+    });
+    stale.profile("fast-proof", { mode: "strict", prove: false });
+    stale.freshness("UserUpdated", { maxStaleMs: 1000 });
+    stale.rollout("UserUpdated", { percentage: 100 });
+    stale.shadow("UserUpdatedV2", { from: "UserUpdated" });
+    stale.mutation("UserUpdated", {
+      owner: "platform-team",
+      affects: (input: { userId: string }) => [entity("User", input.userId, { version: "2" })],
+      fields: () => ["avatarUrl"],
+      routes: {
+        avatarUrl: ["user-avatar"]
+      },
+      targets: (input: { userId: string }) => [
+        redisTarget(`user:${input.userId}`, { label: "user-main" }),
+        redisTarget(`avatar:${input.userId}`, { label: "user-avatar" })
+      ]
+    });
+    stale.mutation("UserUpdatedV2", {
+      targets: (input: { userId: string }) => [redisTarget(`user:${input.userId}`), redisTarget(`search:${input.userId}`)]
+    });
+
+    const receipt = await stale.changed("UserUpdated", { userId: "123" }, { profile: "fast-proof" });
+    const heatmap = await stale.heatmap();
+    const optimize = await stale.optimizeCost();
+    const human = await stale.humanReceipt(receipt);
+    const runbooks = stale.runbooks();
+
+    expect(calls).toEqual(["avatar:123"]);
+    expect(receipt.freshness?.status).toBe("met");
+    expect(receipt.rollout?.active).toBe(true);
+    expect(receipt.shadow?.[0]?.added).toContain("redis:delete:search:123");
+    expect(heatmap.hotMutations[0]?.mutation).toBe("UserUpdated");
+    expect(optimize.suggestions).toEqual([]);
+    expect(human.summary).toContain("UserUpdated");
+    expect(runbooks.some((runbook) => runbook.mutation === "UserUpdated")).toBe(true);
+  });
+
+  it("installs autopilot recipes and emits browser helper and owner maps", async () => {
+    const stale = createStaleZero();
+    const recipe = stale.autopilotRecipes().saasEntity({ owner: "platform-team", search: true });
+    await stale.resource("User", { id: "userId", tenant: "tenantId", owner: "platform-team" }).use(recipe);
+
+    const preview = await stale.preview("UserUpdated", { userId: "u1", tenantId: "t1", after: { name: "Ada" } });
+    const owners = stale.ownershipMap();
+    const helper = stale.browserHelper({ warnAfterMs: 10 });
+
+    expect(preview.targets.map((targetRef) => targetRef.adapter).sort()).toEqual(["query", "redis", "search"]);
+    expect(owners["platform-team"]?.mutations).toContain("UserUpdated");
+    expect(helper).toContain("__STALEZERO_BROWSER_HELPER__");
   });
 
   it("checks service contracts, schemas, marketplace entries, and filtered target replay", async () => {

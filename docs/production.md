@@ -16,6 +16,12 @@ await stale.changed("PlanChanged", input, {
 });
 ```
 
+Strict mode only blocks on required targets. Mark optional targets with `required: false` when their failure should be visible but non-blocking.
+
+```ts
+searchTarget("users", userId, { required: false });
+```
+
 Add reliability controls for production adapters:
 
 ```ts
@@ -57,4 +63,4 @@ stale.useBus(redisPubSubBus({
 
 Run `await stale.ready()` during startup, expose `await stale.health()` to readiness checks, and call `await stale.shutdown()` during graceful process shutdown.
 
-See also [Production Reliability](reliability.md), [Security and Privacy](security.md), and [Threat Model](threat-model.md).
+See also [Failure Semantics](failure-semantics.md), [Distributed Guarantees](distributed-guarantees.md), [Production Reliability](reliability.md), [Security and Privacy](security.md), and [Threat Model](threat-model.md).

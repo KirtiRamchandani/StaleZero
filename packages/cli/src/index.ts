@@ -2,7 +2,7 @@
 import { createServer } from "node:http";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { createStaleZero, type Manifest, type Receipt, type ServiceContract, type TargetRef } from "@stalezero/core";
+import { createStaleZero, MemoryReceiptStore, type Manifest, type Receipt, type ServiceContract, type TargetRef } from "@stalezero/core";
 
 type Command = {
   name: string;
@@ -134,6 +134,47 @@ const commands: Command[] = [
         currentGraph: args.includes("--current-graph")
       });
       console.log(result.toText());
+    }
+  },
+  {
+    name: "prove",
+    description: "Run adapter proof checks for a receipt",
+    run: async (args) => {
+      const idOrFile = args[0];
+      if (!idOrFile) {
+        throw new Error("Usage: stalezero prove <receipt-file> [--ci] [--retries=n] [--timeout-ms=n]");
+      }
+      const receipt = JSON.parse(await readReceipt(idOrFile)) as Receipt;
+      const proof = await createStaleZero().prove(receipt, {
+        ci: args.includes("--ci"),
+        retries: Number(readFlag(args, "--retries") ?? 0),
+        timeoutMs: Number(readFlag(args, "--timeout-ms") ?? 3000)
+      });
+      console.log(proof.toText());
+    }
+  },
+  {
+    name: "lint",
+    description: "Lint mutation graph architecture from a manifest",
+    run: async (args) => {
+      const manifest = await readManifest(args.find((arg) => !arg.startsWith("--")));
+      const report = lintManifest(manifest);
+      console.log(report.text);
+      if (args.includes("--ci") && report.failed > 0) {
+        process.exitCode = 1;
+      }
+    }
+  },
+  {
+    name: "explain-stale",
+    description: "Explain likely stale-data causes for an entity",
+    run: async (args) => {
+      const entityKey = args[0];
+      if (!entityKey) {
+        throw new Error("Usage: stalezero explain-stale <Entity:id>");
+      }
+      const stale = await localStaleFromFiles();
+      console.log((await stale.explainStale(entityKey)).toText());
     }
   },
   {
@@ -481,6 +522,108 @@ const commands: Command[] = [
     }
   },
   {
+    name: "heatmap",
+    description: "Summarize hot, slow, and failure-prone mutations from local receipts",
+    run: async () => {
+      const report = await (await localStaleFromFiles()).heatmap();
+      console.log("Hot mutations:");
+      for (const item of report.hotMutations) {
+        console.log(`- ${item.mutation} ${item.count} receipts p95=${item.p95Ms}ms failures=${Math.round(item.failureRate * 1000) / 10}%`);
+      }
+      console.log("");
+      console.log("Slow targets:");
+      for (const item of report.slowTargets.slice(0, 10)) {
+        console.log(`- ${item.target} p95=${item.p95Ms}ms failures=${Math.round(item.failureRate * 1000) / 10}%`);
+      }
+    }
+  },
+  {
+    name: "optimize-cost",
+    aliases: ["optimize"],
+    description: "Find repeated or broad invalidation work from local receipts",
+    run: async () => {
+      console.log((await (await localStaleFromFiles()).optimizeCost()).toText());
+    }
+  },
+  {
+    name: "score",
+    description: "Calculate a mutation graph readiness score",
+    run: async () => {
+      const manifest = await tryReadManifest();
+      if (manifest) {
+        const lint = lintManifest(manifest);
+        const score = Math.max(0, 100 - lint.failed * 15 - lint.warned * 5);
+        console.log(`StaleZero Project Score: ${score}/100`);
+        console.log("");
+        console.log(lint.text);
+        return;
+      }
+      console.log((await (await localStaleFromFiles()).score()).toText());
+    }
+  },
+  {
+    name: "badge",
+    description: "Write a score badge SVG",
+    run: async () => {
+      const badge = await (await localStaleFromFiles()).badge();
+      const output = resolve(".stalezero/badge.svg");
+      await mkdir(dirname(output), { recursive: true });
+      await writeFile(output, badge.svg);
+      console.log(`Wrote ${output}`);
+      console.log(`${badge.label}: ${badge.message}`);
+    }
+  },
+  {
+    name: "ownership-map",
+    description: "Write mutation and target ownership JSON from a manifest",
+    run: async (args) => {
+      const manifest = await readManifest(args[0]);
+      const owners = ownershipFromManifest(manifest);
+      const output = resolve(".stalezero/ownership.json");
+      await mkdir(dirname(output), { recursive: true });
+      await writeFile(output, `${JSON.stringify(owners, null, 2)}\n`);
+      console.log(`Wrote ${output}`);
+    }
+  },
+  {
+    name: "runbooks",
+    description: "Generate operational runbooks from a manifest",
+    run: async (args) => {
+      const manifest = await readManifest(args[0]);
+      const folder = resolve("runbooks");
+      await mkdir(folder, { recursive: true });
+      for (const [mutation, item] of Object.entries(manifest.mutations)) {
+        await writeFile(join(folder, `${safeFileName(mutation)}.md`), renderRunbook(mutation, item.owner, item.mirrors));
+      }
+      console.log(`Wrote ${folder}`);
+    }
+  },
+  {
+    name: "browser-helper",
+    description: "Write the dev-only browser stale-data helper script",
+    run: async () => {
+      const output = resolve(".stalezero/browser-helper.js");
+      await mkdir(dirname(output), { recursive: true });
+      await writeFile(output, createStaleZero().browserHelper());
+      console.log(`Wrote ${output}`);
+    }
+  },
+  {
+    name: "chaos",
+    description: "Print a local chaos-mode configuration for resilience tests",
+    run: async (args) => {
+      const config = {
+        adapter: readFlag(args, "--adapter"),
+        failRate: Number(readFlag(args, "--fail-rate") ?? 0),
+        slowRate: Number(readFlag(args, "--slow-rate") ?? 0),
+        maxDelayMs: Number(readFlag(args, "--max-delay-ms") ?? 250)
+      };
+      createStaleZero().chaos(config);
+      console.log("Chaos mode configured");
+      console.log(JSON.stringify(config, null, 2));
+    }
+  },
+  {
     name: "watch",
     description: "Watch local receipt files and print a live mutation feed",
     run: async (args) => {
@@ -585,6 +728,32 @@ async function readReceipt(idOrFile: string): Promise<string> {
   throw new Error(`No receipt found for ${idOrFile}`);
 }
 
+async function localStaleFromFiles(): Promise<ReturnType<typeof createStaleZero>> {
+  const stale = createStaleZero();
+  const manifest = await tryReadManifest();
+  if (manifest) {
+    stale.loadManifest(manifest);
+  }
+  const store = new MemoryReceiptStore();
+  for (const receipt of await readLocalReceipts()) {
+    await store.save(receipt);
+  }
+  stale.useReceiptStore(store);
+  return stale;
+}
+
+async function readLocalReceipts(): Promise<Receipt[]> {
+  const folder = resolve(".stalezero/receipts");
+  if (!(await exists(folder))) {
+    return [];
+  }
+  const receipts: Receipt[] = [];
+  for (const file of (await readdir(folder)).filter((item) => item.endsWith(".json"))) {
+    receipts.push(JSON.parse(await readFile(join(folder, file), "utf8")) as Receipt);
+  }
+  return receipts;
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -592,6 +761,86 @@ async function exists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function lintManifest(manifest: Manifest): { failed: number; warned: number; text: string } {
+  const findings: Array<{ severity: "info" | "warn" | "error"; subject: string; message: string }> = [];
+  for (const [mutation, item] of Object.entries(manifest.mutations)) {
+    if (!item.owner) {
+      findings.push({ severity: "warn", subject: mutation, message: "mutation has no owner" });
+    }
+    if (item.mirrors.length === 0) {
+      findings.push({ severity: "info", subject: mutation, message: "mutation has no targets" });
+    }
+    if (item.mirrors.length > 50) {
+      findings.push({ severity: "warn", subject: mutation, message: "mutation has too many targets" });
+    }
+    if (/delete|purge|tenant/i.test(mutation)) {
+      findings.push({ severity: "warn", subject: mutation, message: "destructive mutation should have an approval gate" });
+    }
+  }
+  for (const [targetName, mirror] of Object.entries(manifest.mirrors)) {
+    if (!mirror.owner) {
+      findings.push({ severity: "warn", subject: targetName, message: "target has no owner" });
+    }
+    if (mirror.when.length === 0) {
+      findings.push({ severity: "error", subject: targetName, message: "target is never reached" });
+    }
+    if (/redis/i.test(targetName) && targetName.includes("*")) {
+      findings.push({ severity: "error", subject: targetName, message: "Redis wildcard requires an explicit unsafe review" });
+    }
+    if (/http|webhook/i.test(targetName) && !/allow|signed|safe/i.test(targetName)) {
+      findings.push({ severity: "warn", subject: targetName, message: "HTTP target should document allowlist and signing" });
+    }
+  }
+  const failed = findings.filter((finding) => finding.severity === "error").length;
+  const warned = findings.filter((finding) => finding.severity === "warn").length;
+  const passed = Math.max(0, 12 - failed);
+  const text = [
+    "StaleZero Graph Lint",
+    "",
+    ...(findings.length ? findings.map((finding) => `${finding.severity} ${finding.subject} ${finding.message}`) : ["No findings"]),
+    "",
+    `${passed} passed, ${failed} failed`
+  ].join("\n");
+  return { failed, warned, text };
+}
+
+function ownershipFromManifest(manifest: Manifest): Record<string, { mutations: string[]; targets: string[] }> {
+  const owners: Record<string, { mutations: string[]; targets: string[] }> = {};
+  const add = (owner: string | undefined, kind: "mutations" | "targets", name: string) => {
+    const key = owner ?? "unowned";
+    owners[key] = owners[key] ?? { mutations: [], targets: [] };
+    owners[key][kind].push(name);
+  };
+  for (const [mutation, item] of Object.entries(manifest.mutations)) {
+    add(item.owner, "mutations", mutation);
+  }
+  for (const [targetName, item] of Object.entries(manifest.mirrors)) {
+    add(item.owner, "targets", targetName);
+  }
+  return owners;
+}
+
+function renderRunbook(mutation: string, owner: string | undefined, targets: string[]): string {
+  return [
+    `# ${mutation}`,
+    "",
+    `Owner: ${owner ?? "unowned"}`,
+    "",
+    "## What it does",
+    `Runs declared consequences for ${mutation}.`,
+    "",
+    "## Targets",
+    ...(targets.length ? targets.map((targetName) => `- ${targetName}`) : ["- no targets declared"]),
+    "",
+    "## Failure response",
+    "- inspect the receipt",
+    "- replay failed safe targets only",
+    "- prove required targets",
+    "- compare the receipt against the current manifest",
+    ""
+  ].join("\n");
 }
 
 function parseInputArgs(args: string[]): Record<string, unknown> {

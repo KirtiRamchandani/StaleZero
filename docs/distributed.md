@@ -2,6 +2,8 @@
 
 Distributed mode publishes mutation events to a bus. Each process runs the adapters it owns.
 
+Distributed mode is consequence coordination, not magic consistency. Delivery semantics depend on the bus and store you choose. See [Distributed Guarantees](distributed-guarantees.md) before production use.
+
 ```ts
 const stale = createStaleZero({
   app: "billing",

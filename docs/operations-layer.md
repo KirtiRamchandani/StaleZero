@@ -16,6 +16,16 @@ The operations layer turns mutation consequences into an execution and incident 
 | `emits()` / `consumes()` / `contractCheck()` | Verify service event contracts. |
 | `schemaRegistry()` | Store local schema versions, diffs, docs, and compatibility matrix. |
 | `changed(name, input, { prove: true })` | Run adapter proof checks after execution. |
+| `prove(receipt)` | Re-check a stored receipt in proof-only mode. |
+| `lint()` | Find graph safety and ownership issues. |
+| `explainStale(entity)` | Correlate receipts and expected targets for stale-data debugging. |
+| `heatmap()` | Summarize hot mutations, slow targets, and adapter failure rate. |
+| `optimizeCost()` | Suggest coalescing, batching, and narrower target routing. |
+| `freshness(name, budget)` | Attach freshness expectations to mutations, entities, or targets. |
+| `profile(name, config)` | Reuse consistency, proof, and idempotency defaults. |
+| `rollout()` / `shadow()` | Compare new mutation wiring safely before full rollout. |
+| `ownershipMap()` / `score()` / `badge()` | Make graph readiness visible. |
+| `humanReceipt()` / `notify()` / `runbooks()` | Turn receipts into support and operations material. |
 | `canary(name, input)` | Dry-run production readiness for a mutation. |
 | `incident(receipt)` | Export a receipt as an incident note. |
 | `replay(receipt, filters)` | Replay exact, failed, required, adapter-only, or safe targets. |
@@ -52,8 +62,14 @@ const receipt = await stale.changed("UserUpdated", { userId: "123" }, { prove: t
 
 ```bash
 stalezero canary ProductPriceChanged --productId=p1
+stalezero lint --ci
+stalezero prove receipt.json --ci
+stalezero explain-stale User:123
 stalezero replay receipt.json --failed-only --safe-replay
 stalezero incident receipt.json
 stalezero scan duplicates src
 stalezero cost ProductPriceChanged --productId=p1
+stalezero heatmap
+stalezero optimize-cost
+stalezero score
 ```

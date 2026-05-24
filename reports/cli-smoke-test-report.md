@@ -17,6 +17,9 @@
 | stalezero receipt sample | pass | { |
 | stalezero replay sample --sandbox | pass | Replay: UserUpdated |
 | stalezero replay sample --target=query:invalidate:["user","123"] | pass | Replay: UserUpdated |
+| stalezero prove sample | pass | UserUpdated previewed. |
+| stalezero lint | pass | StaleZero Graph Lint |
+| stalezero explain-stale User:123 | pass | Possible stale bug: User:123 |
 | stalezero undo sample | pass | Undo preview: UserUpdated |
 | stalezero playbook sample | pass | Playbook: UserUpdated |
 | stalezero incident sample | pass | # Incident: UserUpdated success |
@@ -25,6 +28,14 @@
 | stalezero contract-check | pass | Service contract check |
 | stalezero schema check | pass | # Event schemas |
 | stalezero cost UserUpdated --userId=123 | pass | Cost: low (1) |
+| stalezero heatmap | pass | Hot mutations: |
+| stalezero optimize-cost | pass | Optimization suggestions: |
+| stalezero score | pass | StaleZero Project Score: 90/100 |
+| stalezero badge | pass | Wrote <temp>\.stalezero\badge.svg |
+| stalezero ownership-map | pass | Wrote <temp>\.stalezero\ownership.json |
+| stalezero runbooks | pass | Wrote <temp>\runbooks |
+| stalezero browser-helper | pass | Wrote <temp>\.stalezero\browser-helper.js |
+| stalezero chaos --adapter=query --fail-rate=0 | pass | Chaos mode configured |
 | stalezero watch --once | pass | ok UserUpdated -> 1 targets -> success |
 | stalezero scan src | pass | Migration scan |
 | stalezero scan duplicates src | pass | Duplicate work scan |

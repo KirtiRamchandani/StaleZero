@@ -6,6 +6,8 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 export type EntityRef = {
   type: string;
   id: string;
+  version?: string | number;
+  meta?: Record<string, unknown>;
 };
 
 export type TargetAction =
@@ -57,7 +59,7 @@ export type MutationContext<Input = unknown> = {
 export type Adapter<Target extends TargetRef = TargetRef> = {
   name: string;
   execute: (target: Target, context: MutationContext) => MaybePromise<void>;
-  verify?: (target: Target, context: MutationContext) => MaybePromise<boolean | string | { ok: boolean; message?: string }>;
+  verify?: (target: Target, context: MutationContext) => MaybePromise<boolean | string | ProofResult | { ok: boolean; message?: string; evidence?: unknown }>;
   batchExecute?: (targets: Target[], context: MutationContext) => MaybePromise<void>;
   health?: () => MaybePromise<"ok" | { status: string; details?: unknown }>;
   shutdown?: () => MaybePromise<void>;
@@ -90,14 +92,24 @@ export type ExecutionResult = {
 
 export type ReceiptStatus = "success" | "partial" | "failed" | "dry-run";
 
-export type StateProof = {
+export type ProofStatus = "confirmed" | "failed" | "skipped";
+
+export type ProofResult = {
+  target?: TargetRef;
+  status: ProofStatus;
+  evidence?: unknown;
+  message?: string;
+  error?: unknown;
+};
+
+export type StateProof = ProofResult & {
   adapter: string;
   key: string;
   action: TargetAction;
-  status: "passed" | "failed" | "skipped";
   durationMs: number;
   target: TargetRef;
-  message?: string;
+  required: boolean;
+  attempts: number;
   error?: {
     name: string;
     message: string;
@@ -139,6 +151,32 @@ export type CostReport = {
   reasons: string[];
 };
 
+export type FreshnessStatus = {
+  status: "met" | "violated" | "not-configured";
+  checks: Array<{
+    name: string;
+    status: "met" | "violated";
+    actualMs: number;
+    maxStaleMs: number;
+  }>;
+};
+
+export type RolloutReceiptInfo = {
+  name: string;
+  active: boolean;
+  percentage?: number;
+  difference?: SnapshotDiffData;
+};
+
+export type ShadowReceiptInfo = {
+  name: string;
+  from: string;
+  productionTargets: string[];
+  shadowTargets: string[];
+  added: string[];
+  removed: string[];
+};
+
 export type Receipt = {
   id: string;
   mutation: string;
@@ -155,9 +193,14 @@ export type Receipt = {
   risk?: RiskResult;
   slo?: SloEvaluation;
   proofs?: StateProof[];
+  proofStatus?: ProofStatus;
   flow?: FlowReceipt;
   undo?: UndoReceiptInfo;
   cost?: CostReport;
+  freshness?: FreshnessStatus;
+  changedFields?: string[];
+  rollout?: RolloutReceiptInfo;
+  shadow?: ShadowReceiptInfo[];
   approval?: {
     required: boolean;
     granted: boolean;
@@ -196,6 +239,8 @@ export type MutationDefinition<Input = unknown> = {
   schema?: SchemaLike<Input>;
   affects?: (input: Input) => MaybePromise<EntityRef[]>;
   targets?: (input: Input, context: MutationContext<Input>) => MaybePromise<TargetRef[]>;
+  fields?: (input: Input) => MaybePromise<string[]>;
+  routes?: Record<string, string[] | TargetRef[] | ((input: Input, context: MutationContext<Input>) => MaybePromise<TargetRef[]>)>;
   source?: string;
   owner?: string;
 };
@@ -217,6 +262,8 @@ export type CommandDefinition<Input = unknown, Output = unknown> = {
 
 export type ConsistencyMode = "best-effort" | "strict" | "dry-run";
 
+export type PreviewConfidence = "exact" | "estimated" | "unsafe" | "unknown";
+
 export type ChangedOptions = {
   consistency?: ConsistencyMode;
   dryRun?: boolean;
@@ -227,7 +274,10 @@ export type ChangedOptions = {
   actor?: unknown;
   approvalToken?: string;
   prove?: boolean;
+  proofOnly?: boolean;
   proofTimeoutMs?: number;
+  proofRetries?: number;
+  profile?: string;
 };
 
 export type Preview = {
@@ -236,6 +286,12 @@ export type Preview = {
   affected: EntityRef[];
   targets: TargetRef[];
   risk?: RiskResult;
+  confidence?: PreviewConfidence;
+  targetConfidence?: Array<{
+    target: TargetRef;
+    confidence: PreviewConfidence;
+    reasons: string[];
+  }>;
   toText: () => string;
   toJSON: () => {
     mutation: string;
@@ -243,6 +299,12 @@ export type Preview = {
     affected: EntityRef[];
     targets: TargetRef[];
     risk?: RiskResult;
+    confidence?: PreviewConfidence;
+    targetConfidence?: Array<{
+      target: TargetRef;
+      confidence: PreviewConfidence;
+      reasons: string[];
+    }>;
   };
 };
 
@@ -321,6 +383,127 @@ export type StudioApi = {
   handler: (request: unknown, response?: unknown) => Promise<unknown>;
 };
 
+export type GraphLintSeverity = "info" | "warn" | "error";
+
+export type GraphLintFinding = {
+  rule: string;
+  severity: GraphLintSeverity;
+  subject: string;
+  message: string;
+  fix?: string;
+};
+
+export type GraphLintRule = {
+  name: string;
+  run: (context: { manifest: Manifest; mutations: Record<string, MutationDefinition>; adapters: string[] }) => MaybePromise<GraphLintFinding[]>;
+};
+
+export type GraphLintReport = {
+  passed: number;
+  failed: number;
+  findings: GraphLintFinding[];
+  toText: () => string;
+};
+
+export type FreshnessBudget = {
+  maxStaleMs: number;
+  targets?: string[];
+};
+
+export type ConsistencyProfile = {
+  mode?: ConsistencyMode;
+  prove?: boolean;
+  proofRetries?: number;
+  proofTimeoutMs?: number;
+  idempotency?: boolean;
+  approval?: boolean;
+  requiredTargets?: string[];
+  coalesce?: boolean;
+  async?: boolean;
+};
+
+export type RolloutConfig = {
+  percentage?: number;
+  tenants?: string[];
+  environments?: string[];
+  compareWith?: string;
+};
+
+export type ShadowConfig = {
+  from: string;
+};
+
+export type OwnershipMap = Record<string, { mutations: string[]; targets: string[] }>;
+
+export type ProjectScore = {
+  score: number;
+  grade: "A" | "B" | "C" | "D" | "F";
+  strengths: string[];
+  missing: string[];
+  toText: () => string;
+};
+
+export type BadgeResult = {
+  label: string;
+  message: string;
+  color: string;
+  svg: string;
+};
+
+export type ExplainStaleReport = {
+  entity: string;
+  lastReceipt?: Receipt;
+  expectedTargets: TargetRef[];
+  findings: Array<{ status: "ok" | "missing" | "failed" | "unknown"; message: string }>;
+  likelyCause: string;
+  suggestedFix: string;
+  toText: () => string;
+};
+
+export type HeatmapReport = {
+  hotMutations: Array<{ mutation: string; count: number; failureRate: number; p95Ms: number; riskScore: number; costScore: number; owner?: string }>;
+  slowTargets: Array<{ target: string; count: number; p95Ms: number; failureRate: number }>;
+  adapterVolume: Array<{ adapter: string; count: number; failureRate: number }>;
+};
+
+export type OptimizationReport = {
+  suggestions: Array<{ title: string; suggestion: string; estimatedReduction: number; target?: string; mutation?: string }>;
+  toText: () => string;
+};
+
+export type ChaosConfig = {
+  adapter?: string;
+  failRate?: number;
+  slowRate?: number;
+  maxDelayMs?: number;
+  dropBusRate?: number;
+  duplicateBusRate?: number;
+};
+
+export type BrowserHelperOptions = {
+  warnAfterMs?: number;
+  overlay?: boolean;
+};
+
+export type HumanReceipt = {
+  summary: string;
+  markdown: string;
+  slack: string;
+};
+
+export type NotifyConfig = {
+  slack?: string;
+  discord?: string;
+  only?: Array<"critical" | "failed" | "partial" | "high" | "all">;
+  handler?: (message: { title: string; body: string; receipt: ReceiptSnapshot }) => MaybePromise<void>;
+};
+
+export type Runbook = {
+  mutation: string;
+  owner?: string;
+  markdown: string;
+};
+
 export type MutationSnapshotData = {
   version: 1;
   mutation: string;
@@ -394,10 +577,23 @@ export type TemplateDefinition<Input = unknown> = MutationDefinition<Input> & {
 
 export type ResourceDefinition = {
   id: string | ((input: Record<string, unknown>) => string | number);
+  tenant?: string | ((input: Record<string, unknown>) => string | number | undefined);
+  owner?: string;
   cache?: boolean | { prefix?: string };
   query?: boolean | { key?: (id: string, input: Record<string, unknown>) => unknown[] };
   next?: boolean | { tag?: (id: string, input: Record<string, unknown>) => string };
   socket?: boolean | { room?: (id: string, input: Record<string, unknown>) => string; event?: string };
+  search?: boolean | { index?: string };
+};
+
+export type ResourceRecipe = ((resource: ResourceBuilderApi) => MaybePromise<void>) | { install: (resource: ResourceBuilderApi) => MaybePromise<void>; name?: string };
+
+export type ResourceBuilderApi = {
+  name: string;
+  definition: ResourceDefinition;
+  use: (recipe: ResourceRecipe) => Promise<ResourceBuilderApi>;
+  preview: (recipe: ResourceRecipe) => Promise<string>;
+  eject: (recipe: ResourceRecipe) => string;
 };
 
 export type CompiledManifest = Manifest & {

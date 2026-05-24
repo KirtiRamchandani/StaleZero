@@ -19,6 +19,8 @@ Statuses:
 | `failed` | Every target failed |
 | `dry-run` | Nothing executed |
 
+Receipts can also include proof status, changed fields, rollout and shadow comparisons, freshness checks, cost, SLOs, owner metadata, and approval results. The stable field list is documented in [Receipt Schema](receipt-schema.md).
+
 Use receipt redaction for sensitive fields:
 
 ```ts

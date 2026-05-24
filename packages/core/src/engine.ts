@@ -22,12 +22,16 @@ import type {
   Adapter,
   ApprovalConfig,
   AuditEvent,
+  BadgeResult,
   BlackboxConfig,
   BlackboxEntry,
+  BrowserHelperOptions,
   CanaryResult,
+  ChaosConfig,
   ChangedOptions,
   CommandDefinition,
   CompiledManifest,
+  ConsistencyProfile,
   ConsistencyMode,
   CoalesceConfig,
   CostReport,
@@ -38,11 +42,19 @@ import type {
   DriftReport,
   EntityRef,
   EventBus,
+  ExplainStaleReport,
   ExecutionResult,
   ExecutionStatus,
   FlowResult,
   FlowStepOptions,
   FlowStepReceipt,
+  FreshnessBudget,
+  FreshnessStatus,
+  GraphLintFinding,
+  GraphLintReport,
+  GraphLintRule,
+  HeatmapReport,
+  HumanReceipt,
   InboxApi,
   InboxConfig,
   Manifest,
@@ -55,8 +67,14 @@ import type {
   MutationDefinition,
   MutationSnapshot,
   MutationSnapshotData,
+  NotifyConfig,
+  OptimizationReport,
+  OwnershipMap,
   Playbook,
   Preview,
+  PreviewConfidence,
+  ProjectScore,
+  ProofResult,
   RateLimitConfig,
   Receipt,
   ReceiptStore,
@@ -64,16 +82,21 @@ import type {
   RedactionOptions,
   ReplayOptions,
   ReplayResult,
+  ResourceBuilderApi,
   ResourceDefinition,
+  ResourceRecipe,
   RiskConfig,
   RiskLevel,
   RiskResult,
+  RolloutConfig,
+  Runbook,
   SandboxConfig,
   SchemaLike,
   SchemaRegistryApi,
   SecurityConfig,
   ServiceContract,
   ServiceContractReport,
+  ShadowConfig,
   SloConfig,
   SloEvaluation,
   SnapshotDiff,
@@ -104,6 +127,16 @@ type MirrorRecord = {
 type CommandRecord = {
   name: string;
   definition: CommandDefinition;
+};
+export type AutopilotRecipeOptions = {
+  redis?: boolean;
+  reactQuery?: boolean;
+  nextTag?: boolean;
+  socket?: boolean;
+  search?: boolean;
+  tenantGuard?: boolean;
+  owner?: string;
+  searchIndex?: string;
 };
 type ResolvedExecutionConfig = Required<Omit<NonNullable<StaleZeroConfig["execution"]>, "retry" | "circuitBreaker">> & {
   retry: Required<NonNullable<NonNullable<StaleZeroConfig["execution"]>["retry"]>>;
@@ -185,7 +218,9 @@ export interface StaleZero<Mutations extends MutationMap = {}> {
   ): Promise<MutationSnapshot>;
   compareSnapshots(left: MutationSnapshot | MutationSnapshotData, right: MutationSnapshot | MutationSnapshotData): Promise<SnapshotDiff>;
   replay(receipt: string | Receipt, options?: ReplayOptions): Promise<ReplayResult>;
+  prove(receipt: string | Receipt, options?: { timeoutMs?: number; retries?: number; ci?: boolean }): Promise<Receipt>;
   contract(name: string, definition: MutationContract): Promise<MutationContractResult>;
+  lint(options?: { ci?: boolean; rules?: GraphLintRule[]; autofix?: boolean }): Promise<GraphLintReport>;
   flow<const Name extends string>(
     name: Name,
     input: Name extends keyof Mutations ? Mutations[Name] : unknown
@@ -214,6 +249,30 @@ export interface StaleZero<Mutations extends MutationMap = {}> {
     name: Name,
     input: Name extends keyof Mutations ? Mutations[Name] : unknown
   ): Promise<CostReport>;
+  explainStale(entity: string, options?: { input?: unknown }): Promise<ExplainStaleReport>;
+  heatmap(options?: { limit?: number; owner?: string }): Promise<HeatmapReport>;
+  optimizeCost(options?: { limit?: number }): Promise<OptimizationReport>;
+  freshness(name: string, budget: FreshnessBudget): this;
+  profile(name: string, config: ConsistencyProfile): this;
+  rollout(name: string, config: RolloutConfig): this;
+  shadow(name: string, config: ShadowConfig): this;
+  ownershipMap(): OwnershipMap;
+  score(): Promise<ProjectScore>;
+  badge(): Promise<BadgeResult>;
+  chaos(config: ChaosConfig): this;
+  browserHelper(options?: BrowserHelperOptions): string;
+  humanReceipt(receipt: string | Receipt): Promise<HumanReceipt>;
+  notify(config: NotifyConfig): this;
+  runbooks(): Runbook[];
+  autopilotRecipes(): {
+    saasEntity: (options?: AutopilotRecipeOptions) => ResourceRecipe;
+    commerceProduct: (options?: AutopilotRecipeOptions) => ResourceRecipe;
+    authSession: (options?: AutopilotRecipeOptions) => ResourceRecipe;
+    webhook: (options?: AutopilotRecipeOptions) => ResourceRecipe;
+    searchBackedEntity: (options?: AutopilotRecipeOptions) => ResourceRecipe;
+    multiTenant: (options?: AutopilotRecipeOptions) => ResourceRecipe;
+    serverless: (options?: AutopilotRecipeOptions) => ResourceRecipe;
+  };
   diagnostics(): Diagnostic[];
   codeowners(): string;
   why(targetName: string, input?: unknown): Promise<WhyResult>;
@@ -221,7 +280,7 @@ export interface StaleZero<Mutations extends MutationMap = {}> {
   exportReceipts(options?: { mutation?: string }): Promise<Receipt[]>;
   useRecipe(recipe: RecipeInstaller<this>): Promise<this>;
   useTemplate<Input = unknown>(name: string, definition: TemplateDefinition<Input>): this;
-  resource(name: string, definition: ResourceDefinition): this;
+  resource(name: string, definition: ResourceDefinition): StaleZeroResourceBuilder;
   compileManifest(): CompiledManifest;
   coalesce(config: CoalesceConfig): this;
   slo(name: string, config: SloConfig): this;
@@ -528,6 +587,112 @@ export class StaleZeroFlowBuilder {
   }
 }
 
+export class StaleZeroResourceBuilder implements ResourceBuilderApi {
+  readonly #engine: StaleZeroEngine;
+  readonly name: string;
+  readonly definition: ResourceDefinition;
+
+  constructor(engine: StaleZeroEngine, name: string, definition: ResourceDefinition) {
+    this.#engine = engine;
+    this.name = name;
+    this.definition = definition;
+  }
+
+  async use(recipe: ResourceRecipe): Promise<ResourceBuilderApi> {
+    if (typeof recipe === "function") {
+      await recipe(this);
+    } else {
+      await recipe.install(this);
+    }
+    return this;
+  }
+
+  async preview(recipe: ResourceRecipe): Promise<string> {
+    const clone = new StaleZeroResourceBuilder(this.#engine, this.name, this.definition);
+    await clone.use(recipe);
+    return this.eject(recipe);
+  }
+
+  eject(recipe: ResourceRecipe): string {
+    const name = typeof recipe === "function" ? "custom-resource-recipe" : recipe.name ?? "resource-recipe";
+    return [
+      `stale.resource("${this.name}", ${JSON.stringify(this.definition, null, 2)})`,
+      `  .use(${name});`
+    ].join("\n");
+  }
+
+  installStandard(options: AutopilotRecipeOptions = {}): void {
+    const idField = typeof this.definition.id === "string" ? this.definition.id : `${this.name.toLowerCase()}Id`;
+    const entityName = this.name;
+    const owner = options.owner ?? this.definition.owner;
+    const idFrom = (input: Record<string, unknown>): string => String(input[idField] ?? input.id ?? "unknown");
+    const mutations = [`${entityName}Created`, `${entityName}Updated`, `${entityName}Deleted`, `${entityName}RoleChanged`];
+
+    for (const mutation of mutations) {
+      this.#engine.mutation(mutation, {
+        owner,
+        affects: (input: Record<string, unknown>) => [entity(entityName, idFrom(input))],
+        fields: (input: Record<string, unknown>) => Object.keys((input.after as Record<string, unknown> | undefined) ?? input),
+        routes: {
+          name: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:search`],
+          email: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:search`],
+          avatarUrl: [`${mutation}:redis`, `${mutation}:query`],
+          role: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:socket`]
+        }
+      });
+      if (options.redis !== false) {
+        this.#engine.mirror(`${mutation}:redis`, {
+          when: mutation,
+          owner,
+          target: (input: Record<string, unknown>) => redisTarget(`${entityName.toLowerCase()}:${idFrom(input)}`, { owner })
+        });
+      }
+      if (options.reactQuery !== false) {
+        this.#engine.mirror(`${mutation}:query`, {
+          when: mutation,
+          owner,
+          target: (input: Record<string, unknown>) => queryTarget([entityName.toLowerCase(), idFrom(input)], { owner })
+        });
+      }
+      if (options.nextTag !== false) {
+        this.#engine.mirror(`${mutation}:next`, {
+          when: mutation,
+          owner,
+          target: (input: Record<string, unknown>) => nextTagTarget(`${entityName.toLowerCase()}:${idFrom(input)}`, { owner })
+        });
+      }
+      if (options.socket !== false) {
+        this.#engine.mirror(`${mutation}:socket`, {
+          when: mutation,
+          owner,
+          target: (input: Record<string, unknown>) => socketTarget(`${entityName.toLowerCase()}:${idFrom(input)}`, { owner, event: `${entityName.toLowerCase()}.changed` })
+        });
+      }
+      if (options.search) {
+        this.#engine.mirror(`${mutation}:search`, {
+          when: mutation,
+          owner,
+          target: (input: Record<string, unknown>) => searchTarget(options.searchIndex ?? `${entityName.toLowerCase()}s`, idFrom(input), { owner })
+        });
+      }
+    }
+
+    if (options.tenantGuard && this.definition.tenant) {
+      const tenant = this.definition.tenant;
+      this.#engine.security({ requireActor: true, requireTenantBoundary: true, blockUnsafeTargets: true });
+      this.#engine.tenant({
+        actorTenant: ({ actor }) => (isRecord(actor) ? String(actor.tenantId ?? "") : undefined),
+        inputTenant: ({ input }) => {
+          const record = isRecord(input) ? input : {};
+          const value = typeof tenant === "function" ? tenant(record) : record[tenant];
+          return value === undefined ? undefined : String(value);
+        },
+        blockCrossTenant: true
+      });
+    }
+  }
+}
+
 export class StaleZeroEngine {
   readonly #config: ResolvedConfig;
   readonly #adapters = new Map<string, Adapter>();
@@ -552,6 +717,13 @@ export class StaleZeroEngine {
   readonly #consumedContracts: ServiceContract[] = [];
   readonly #schemaVersions = new Map<string, ServiceContract["schema"]>();
   readonly #driftProbes: DriftProbe[] = [];
+  readonly #lintRules: GraphLintRule[] = [];
+  readonly #freshnessBudgets = new Map<string, FreshnessBudget>();
+  readonly #profiles = new Map<string, ConsistencyProfile>();
+  readonly #rollouts = new Map<string, RolloutConfig>();
+  readonly #shadows = new Map<string, ShadowConfig>();
+  readonly #notifyConfigs: NotifyConfig[] = [];
+  #chaosConfig?: ChaosConfig;
   readonly #blackboxLog: BlackboxEntry[] = [];
   #receiptStore: ReceiptStore = new MemoryReceiptStore();
   #manifest?: Manifest;
@@ -843,6 +1015,74 @@ export class StaleZeroEngine {
           `Mode: ${mode}`
         ].join("\n")
     };
+  }
+
+  async prove(receiptOrId: string | Receipt, options: { timeoutMs?: number; retries?: number; ci?: boolean } = {}): Promise<Receipt> {
+    const original = await this.#resolveReceipt(receiptOrId);
+    const context = await this.#context(original.mutation, original.input, original.affected, {
+      dryRun: false,
+      traceId: original.traceId,
+      source: "proof",
+      id: createId("proof")
+    });
+    const proofs = await this.#proveTargets(original.targets, context, options.timeoutMs, options.retries);
+    const receipt = createReceipt({
+      id: context.id,
+      mutation: original.mutation,
+      payload: this.#redact(original.input),
+      affected: original.affected,
+      targets: original.targets,
+      results: original.targets.map((targetRef) => this.#result(targetRef, "skipped", 0, 0, undefined, "proof only")),
+      status: proofRequiredFailure(proofs) ? "failed" : "dry-run",
+      durationMs: proofs.reduce((sum, proof) => sum + proof.durationMs, 0),
+      timestamp: now(),
+      app: this.#config.app,
+      traceId: original.traceId,
+      owner: original.owner,
+      risk: original.risk,
+      proofs,
+      proofStatus: proofStatusFrom(proofs),
+      cost: original.cost
+    });
+    if (this.#shouldStoreReceipt()) {
+      await this.#receiptStore.save(receipt);
+    }
+    if (options.ci && proofRequiredFailure(proofs)) {
+      throw new StaleZeroExecutionError(receipt);
+    }
+    return receipt;
+  }
+
+  async lint(options: { ci?: boolean; rules?: GraphLintRule[]; autofix?: boolean } = {}): Promise<GraphLintReport> {
+    const manifest = this.generateManifest();
+    const context = {
+      manifest,
+      mutations: Object.fromEntries(this.#mutations.entries()),
+      adapters: [...this.#adapters.keys()]
+    };
+    const findings = [
+      ...builtInLintFindings(manifest, this.#mutations, this.#mirrors, this.#adapters, this.#approvalGates),
+      ...(await asyncFlatMap([...this.#lintRules, ...(options.rules ?? [])], (rule) => rule.run(context)))
+    ];
+    const failed = findings.filter((finding) => finding.severity === "error").length;
+    const passed = Math.max(0, 12 - failed);
+    const report = {
+      passed,
+      failed,
+      findings,
+      toText: () =>
+        [
+          "StaleZero Graph Lint",
+          "",
+          ...findings.map((finding) => `${finding.severity === "error" ? "fail" : finding.severity} ${finding.subject} ${finding.message}`),
+          "",
+          `${passed} passed, ${failed} failed`
+        ].join("\n")
+    };
+    if (options.ci && failed > 0) {
+      throw new Error(report.toText());
+    }
+    return report;
   }
 
   async contract(name: string, definition: MutationContract): Promise<MutationContractResult> {
@@ -1140,6 +1380,232 @@ export class StaleZeroEngine {
     return estimateCost(preview.targets);
   }
 
+  async explainStale(entityKey: string, options: { input?: unknown } = {}): Promise<ExplainStaleReport> {
+    const [type = entityKey, id = ""] = entityKey.split(":");
+    const receipts = await this.#receiptStore.list({ limit: 1000 });
+    const lastReceipt = receipts.find((receipt) => receipt.affected.some((ref) => ref.type === type && ref.id === id));
+    const candidateMutation = lastReceipt?.mutation ?? Object.keys(this.generateManifest().mutations).find((name) => name.includes(type));
+    const expectedTargets = candidateMutation
+      ? (await this.preview(candidateMutation, options.input ?? lastReceipt?.input ?? { [`${type.toLowerCase()}Id`]: id, id })).targets
+      : [];
+    const failed = lastReceipt?.results.filter((result) => result.status === "failed") ?? [];
+    const executedSignatures = new Set(lastReceipt?.targets.map(targetSignature) ?? []);
+    const findings = [
+      ...expectedTargets.map((targetRef) => ({
+        status: executedSignatures.has(targetSignature(targetRef)) ? "ok" as const : "missing" as const,
+        message: `${targetRef.adapter}:${targetRef.key} ${executedSignatures.has(targetSignature(targetRef)) ? "was covered" : "is not in the last receipt"}`
+      })),
+      ...failed.map((result) => ({ status: "failed" as const, message: `${result.adapter}:${result.key} failed: ${result.error?.message ?? "unknown error"}` }))
+    ];
+    const likelyCause = failed[0]
+      ? `${failed[0].adapter}:${failed[0].key} failed during the last relevant mutation.`
+      : findings.some((finding) => finding.status === "missing")
+        ? "The current graph expects a target that the last receipt did not include."
+        : "No obvious stale cause found from receipt history.";
+    return {
+      entity: entityKey,
+      lastReceipt,
+      expectedTargets,
+      findings,
+      likelyCause,
+      suggestedFix: failed[0] ? `Run stalezero replay ${lastReceipt?.id} --target=${targetSignature(failed[0].target)} --safe-replay` : "Compare the mutation graph and add the missing target.",
+      toText: () =>
+        [
+          `Possible stale bug: ${entityKey}`,
+          "",
+          "Last relevant mutation:",
+          lastReceipt ? `- ${lastReceipt.mutation} at ${new Date(lastReceipt.timestamp).toISOString()}` : "- none",
+          "",
+          "Expected targets:",
+          ...(expectedTargets.length ? expectedTargets.map((targetRef) => `- ${targetRef.adapter} ${targetRef.key}`) : ["- none found"]),
+          "",
+          "Findings:",
+          ...(findings.length ? findings.map((finding) => `- ${finding.status} ${finding.message}`) : ["- no findings"]),
+          "",
+          `Likely cause: ${likelyCause}`,
+          `Suggested fix: ${failed[0] ? `replay ${failed[0].adapter}:${failed[0].key}` : "review graph wiring"}`
+        ].join("\n")
+    };
+  }
+
+  async heatmap(options: { limit?: number; owner?: string } = {}): Promise<HeatmapReport> {
+    const receipts = await this.#receiptStore.list({ limit: options.limit ?? 1000 });
+    return heatmapFromReceipts(options.owner ? receipts.filter((receipt) => receipt.owner === options.owner) : receipts);
+  }
+
+  async optimizeCost(options: { limit?: number } = {}): Promise<OptimizationReport> {
+    const receipts = await this.#receiptStore.list({ limit: options.limit ?? 1000 });
+    const suggestions = optimizationSuggestions(receipts);
+    return {
+      suggestions,
+      toText: () =>
+        [
+          "Optimization suggestions:",
+          "",
+          ...(suggestions.length
+            ? suggestions.map((suggestion, index) => `${index + 1}. ${suggestion.title}\n   Suggestion: ${suggestion.suggestion}\n   Estimated reduction: ${suggestion.estimatedReduction}%`)
+            : ["No obvious waste patterns found."])
+        ].join("\n")
+    };
+  }
+
+  freshness(name: string, budget: FreshnessBudget): this {
+    this.#freshnessBudgets.set(name, budget);
+    return this;
+  }
+
+  profile(name: string, config: ConsistencyProfile): this {
+    this.#profiles.set(name, config);
+    return this;
+  }
+
+  rollout(name: string, config: RolloutConfig): this {
+    this.#rollouts.set(name, config);
+    return this;
+  }
+
+  shadow(name: string, config: ShadowConfig): this {
+    this.#shadows.set(name, config);
+    return this;
+  }
+
+  ownershipMap(): OwnershipMap {
+    const map: OwnershipMap = {};
+    for (const [name, definition] of this.#mutations) {
+      const owner = definition.owner ?? "unowned";
+      map[owner] = map[owner] ?? { mutations: [], targets: [] };
+      map[owner].mutations.push(name);
+    }
+    for (const [name, mirror] of this.#mirrors) {
+      const owner = mirror.definition.owner ?? "unowned";
+      map[owner] = map[owner] ?? { mutations: [], targets: [] };
+      map[owner].targets.push(name);
+    }
+    return map;
+  }
+
+  async score(): Promise<ProjectScore> {
+    const lint = await this.lint();
+    const strengths: string[] = [];
+    const missing: string[] = [];
+    if (!lint.findings.some((finding) => finding.rule === "missing-schema")) strengths.push("all registered mutations have schemas");
+    if (!lint.findings.some((finding) => finding.rule === "missing-owner")) strengths.push("mutation ownership is declared");
+    if (this.#config.receipts.redact?.length) strengths.push("receipt redaction is enabled");
+    for (const finding of lint.findings.filter((item) => item.severity === "error" || item.severity === "warn")) {
+      missing.push(finding.message);
+    }
+    const score = Math.max(0, 100 - lint.findings.filter((item) => item.severity === "error").length * 15 - lint.findings.filter((item) => item.severity === "warn").length * 5);
+    const grade = score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F";
+    return {
+      score,
+      grade,
+      strengths,
+      missing,
+      toText: () => [`StaleZero Project Score: ${score}/100`, "", "Strengths:", ...(strengths.length ? strengths.map((item) => `- ${item}`) : ["- add graph metadata"]), "", "Missing:", ...(missing.length ? missing.map((item) => `- ${item}`) : ["- nothing major"])].join("\n")
+    };
+  }
+
+  async badge(): Promise<BadgeResult> {
+    const score = await this.score();
+    const color = score.score >= 90 ? "brightgreen" : score.score >= 80 ? "green" : score.score >= 70 ? "yellow" : "orange";
+    const label = "StaleZero Score";
+    const message = `${score.score}/100 ${score.grade}`;
+    return {
+      label,
+      message,
+      color,
+      svg: badgeSvg(label, message, color)
+    };
+  }
+
+  chaos(config: ChaosConfig): this {
+    this.#chaosConfig = config;
+    return this;
+  }
+
+  browserHelper(options: BrowserHelperOptions = {}): string {
+    const warnAfterMs = options.warnAfterMs ?? 2000;
+    return `(() => {
+  const warnAfterMs = ${warnAfterMs};
+  const receipts = [];
+  globalThis.__STALEZERO_BROWSER_HELPER__ = {
+    receipt(receipt) {
+      receipts.push(receipt);
+      setTimeout(() => {
+        for (const target of receipt.targets || []) {
+          if (target.adapter === "query" || target.adapter === "swr" || target.adapter === "redux" || target.adapter === "zustand") {
+            console.warn("[StaleZero] check freshness for", target.key, "after", receipt.mutation);
+          }
+        }
+      }, warnAfterMs);
+    },
+    receipts
+  };
+})();`;
+  }
+
+  async humanReceipt(receiptOrId: string | Receipt): Promise<HumanReceipt> {
+    const receipt = await this.#resolveReceipt(receiptOrId);
+    const actor = isRecord(receipt.input) && receipt.input.actor ? String(receipt.input.actor) : "Someone";
+    const affected = receipt.affected.map((ref) => `${ref.type} ${ref.id}`).join(", ") || receipt.mutation;
+    const targetSummary = uniqueStrings(receipt.targets.map((targetRef) => humanTarget(targetRef))).join(", ") || "no external targets";
+    const summary = `${actor} ran ${receipt.mutation} for ${affected}. StaleZero refreshed ${targetSummary}. ${receipt.status === "success" ? "Everything completed" : "Some work needs attention"} in ${receipt.durationMs}ms.`;
+    return {
+      summary,
+      markdown: `## ${receipt.mutation}\n\n${summary}\n`,
+      slack: summary
+    };
+  }
+
+  notify(config: NotifyConfig): this {
+    this.#notifyConfigs.push(config);
+    return this;
+  }
+
+  runbooks(): Runbook[] {
+    return [...this.#mutations.entries()].map(([mutation, definition]) => {
+      const mirrors = [...this.#mirrors.values()].filter((mirror) => asArray(mirror.definition.when).includes(mutation)).map((mirror) => mirror.name);
+      const owner = definition.owner;
+      const markdown = [
+        `# ${mutation}`,
+        "",
+        `Owner: ${owner ?? "unowned"}`,
+        "",
+        "## What it does",
+        `Runs mutation consequences for ${mutation}.`,
+        "",
+        "## Targets",
+        ...(mirrors.length ? mirrors.map((mirror) => `- ${mirror}`) : ["- no targets declared"]),
+        "",
+        "## Common commands",
+        `- stalezero replay <receipt> --failed-only --safe-replay`,
+        `- stalezero prove <receipt> --ci`,
+        `- stalezero playbook <receipt>`
+      ].join("\n");
+      return { mutation, owner, markdown };
+    });
+  }
+
+  autopilotRecipes(): ReturnType<StaleZero["autopilotRecipes"]> {
+    const standard = (options: AutopilotRecipeOptions = {}): ResourceRecipe => ({
+      name: "standard-resource",
+      install: (resource) => {
+        if (resource instanceof StaleZeroResourceBuilder) {
+          resource.installStandard(options);
+        }
+      }
+    });
+    return {
+      saasEntity: (options = {}) => standard({ redis: true, reactQuery: true, nextTag: true, socket: true, search: true, tenantGuard: true, ...options }),
+      commerceProduct: (options = {}) => standard({ redis: true, reactQuery: true, nextTag: true, socket: true, search: true, ...options }),
+      authSession: (options = {}) => standard({ redis: true, reactQuery: true, nextTag: false, socket: true, search: false, ...options }),
+      webhook: (options = {}) => standard({ redis: false, reactQuery: false, nextTag: false, socket: false, search: false, ...options }),
+      searchBackedEntity: (options = {}) => standard({ redis: true, reactQuery: true, nextTag: true, socket: false, search: true, ...options }),
+      multiTenant: (options = {}) => standard({ redis: true, reactQuery: true, nextTag: true, socket: true, search: true, tenantGuard: true, ...options }),
+      serverless: (options = {}) => standard({ redis: true, reactQuery: false, nextTag: true, socket: false, search: false, ...options })
+    };
+  }
+
   diagnostics(): Diagnostic[] {
     const manifest = this.generateManifest();
     const diagnostics: Diagnostic[] = [];
@@ -1275,7 +1741,7 @@ export class StaleZeroEngine {
     return this;
   }
 
-  resource(name: string, definition: ResourceDefinition): this {
+  resource(name: string, definition: ResourceDefinition): StaleZeroResourceBuilder {
     const idFromInput = (input: unknown): string => {
       const record = isRecord(input) ? input : {};
       const value = typeof definition.id === "function" ? definition.id(record) : record[definition.id];
@@ -1287,9 +1753,11 @@ export class StaleZeroEngine {
     const mutationBase = `${name}Updated`;
     const entityType = name;
     this.mutation(mutationBase, {
+      owner: definition.owner,
       affects: (input) => [entity(entityType, idFromInput(input))]
     });
     this.mutation(`${name}Deleted`, {
+      owner: definition.owner,
       affects: (input) => [entity(entityType, idFromInput(input))]
     });
 
@@ -1298,38 +1766,57 @@ export class StaleZeroEngine {
         const prefix = typeof definition.cache === "object" ? definition.cache.prefix ?? `${name.toLowerCase()}:` : `${name.toLowerCase()}:`;
         this.mirror(`${mutation}:redis`, {
           when: mutation,
-          target: (input) => redisTarget(`${prefix}${idFromInput(input)}`)
+          owner: definition.owner,
+          target: (input) => redisTarget(`${prefix}${idFromInput(input)}`, { owner: definition.owner })
         });
       }
       if (definition.query) {
         const key = typeof definition.query === "object" ? definition.query.key : undefined;
         this.mirror(`${mutation}:query`, {
           when: mutation,
-          target: (input) => queryTarget(key ? key(idFromInput(input), input as Record<string, unknown>) : [name.toLowerCase(), idFromInput(input)])
+          owner: definition.owner,
+          target: (input) =>
+            queryTarget(key ? key(idFromInput(input), input as Record<string, unknown>) : [name.toLowerCase(), idFromInput(input)], {
+              owner: definition.owner
+            })
         });
       }
       if (definition.next) {
         const tagFactory = typeof definition.next === "object" ? definition.next.tag : undefined;
         this.mirror(`${mutation}:next`, {
           when: mutation,
-          target: (input) => nextTagTarget(tagFactory ? tagFactory(idFromInput(input), input as Record<string, unknown>) : `${name.toLowerCase()}:${idFromInput(input)}`)
+          owner: definition.owner,
+          target: (input) =>
+            nextTagTarget(tagFactory ? tagFactory(idFromInput(input), input as Record<string, unknown>) : `${name.toLowerCase()}:${idFromInput(input)}`, {
+              owner: definition.owner
+            })
         });
       }
       if (definition.socket) {
         const socketOptions = typeof definition.socket === "object" ? definition.socket : {};
         this.mirror(`${mutation}:socket`, {
           when: mutation,
+          owner: definition.owner,
           target: (input) =>
             socketTarget(socketOptions.room ? socketOptions.room(idFromInput(input), input as Record<string, unknown>) : `${name.toLowerCase()}:${idFromInput(input)}`, {
-              event: socketOptions.event
+              event: socketOptions.event,
+              owner: definition.owner
             })
+        });
+      }
+      if (definition.search) {
+        const index = typeof definition.search === "object" ? definition.search.index ?? `${name.toLowerCase()}s` : `${name.toLowerCase()}s`;
+        this.mirror(`${mutation}:search`, {
+          when: mutation,
+          owner: definition.owner,
+          target: (input) => searchTarget(index, idFromInput(input), { owner: definition.owner })
         });
       }
     };
 
     registerFor(mutationBase);
     registerFor(`${name}Deleted`);
-    return this;
+    return new StaleZeroResourceBuilder(this, name, definition);
   }
 
   compileManifest(): CompiledManifest {
@@ -1629,13 +2116,16 @@ export class StaleZeroEngine {
     this.#assertPayloadSize(parsed);
     const affected = await this.#affected(mutation, parsed, request.explicitAffected ?? []);
     const context = await this.#context(mutation, parsed, affected, { dryRun: true });
-    const targets = await this.#targets(mutation, parsed, context, request.explicitTargets ?? []);
+    const changedFields = definition?.fields ? await definition.fields(parsed) : inferChangedFields(parsed);
+    const targets = await this.#targets(mutation, parsed, context, request.explicitTargets ?? [], changedFields);
     const previewTargets =
       targets.length > 0 || !this.#manifest?.mutations[mutation]
         ? targets
         : this.#manifest.mutations[mutation].mirrors.map((mirror) => target("manifest", mirror, "invalidate", { label: mirror }));
     const risk = this.#assessRisk(mutation, parsed, previewTargets);
     const redactedInput = this.#redact(parsed);
+    const targetConfidence = previewConfidenceForTargets(previewTargets);
+    const confidence = summarizePreviewConfidence(targetConfidence);
 
     this.#recordBlackbox({
       id: createId("bbx"),
@@ -1651,7 +2141,9 @@ export class StaleZeroEngine {
       affected,
       targets: previewTargets,
       risk,
-      toJSON: () => ({ mutation, input: redactedInput, affected, targets: previewTargets, risk }),
+      confidence,
+      targetConfidence,
+      toJSON: () => ({ mutation, input: redactedInput, affected, targets: previewTargets, risk, confidence, targetConfidence }),
       toText: () =>
         receiptToText({
           id: "preview",
@@ -1673,41 +2165,52 @@ export class StaleZeroEngine {
     const started = now();
     const mutation = request.mutation;
     const definition = this.#mutations.get(mutation);
-    const consistency = this.#consistency(request.options);
-    const dryRun = request.options?.dryRun === true || consistency === "dry-run";
+    const options = this.#applyProfile(mutation, request.options);
+    const consistency = this.#consistency(options);
+    const dryRun = options?.dryRun === true || consistency === "dry-run";
+    const proofOnly = options?.proofOnly === true;
     const parsed = await this.#parseInput(definition?.schema, request.input);
     this.#assertPayloadSize(parsed);
     const affected = await this.#affected(mutation, parsed, request.explicitAffected ?? []);
     const context = await this.#context(mutation, parsed, affected, {
-      dryRun,
-      traceId: request.options?.traceId,
-      source: request.options?.source,
-      id: request.options?.idempotencyKey
+      dryRun: dryRun || proofOnly,
+      traceId: options?.traceId,
+      source: options?.source,
+      id: options?.idempotencyKey
     });
-    const targets = await this.#targets(mutation, parsed, context, request.explicitTargets ?? []);
+    const changedFields = definition?.fields ? await definition.fields(parsed) : inferChangedFields(parsed);
+    const targets = await this.#targets(mutation, parsed, context, request.explicitTargets ?? [], changedFields);
     const orderedTargets = [...targets].sort((left, right) => (left.priority ?? 0) - (right.priority ?? 0));
     const risk = this.#assessRisk(mutation, parsed, orderedTargets);
     const previewForGuards = this.#previewFromParts(mutation, parsed, affected, orderedTargets, risk);
-    const approval = await this.#guardMutation(mutation, parsed, affected, orderedTargets, request.options, previewForGuards, risk);
+    const approval = await this.#guardMutation(mutation, parsed, affected, orderedTargets, options, previewForGuards, risk);
 
     let results: ExecutionResult[] = [];
-    if (dryRun) {
-      results = orderedTargets.map((targetRef) => this.#result(targetRef, "skipped", 0, 0, undefined, "dry run"));
+    if (dryRun || proofOnly) {
+      results = orderedTargets.map((targetRef) => this.#result(targetRef, "skipped", 0, 0, undefined, proofOnly ? "proof only" : "dry run"));
     } else {
-      await this.#namedRateLimit(mutation, parsed, request.options?.actor);
+      await this.#namedRateLimit(mutation, parsed, options?.actor);
       results = await this.#executeTargets(orderedTargets, context);
     }
 
-    const publishResult = await this.#publishIfNeeded(context, request.options, dryRun);
+    const publishResult = await this.#publishIfNeeded(context, options, dryRun || proofOnly);
     const receiptTargets = publishResult ? [...orderedTargets, publishResult.target] : orderedTargets;
     const receiptResults = publishResult ? [...results, publishResult.result] : results;
     const proofs =
-      request.options?.prove === true
-        ? await this.#proveTargets(receiptTargets, context, request.options.proofTimeoutMs)
+      options?.prove === true || proofOnly
+        ? await this.#proveTargets(receiptTargets, { ...context, dryRun: false }, options?.proofTimeoutMs, options?.proofRetries)
         : undefined;
-    const status = dryRun ? "dry-run" : receiptStatus(receiptResults);
+    const proofStatus = proofStatusFrom(proofs);
+    const resultStatus = dryRun ? "dry-run" : receiptStatus(receiptResults);
+    const status = proofRequiredFailure(proofs)
+      ? resultStatus === "success"
+        ? "partial"
+        : resultStatus
+      : resultStatus;
     const durationMs = now() - started;
     const slo = this.#evaluateSlo(mutation, receiptResults, durationMs);
+    const rollout = await this.#rolloutReceipt(mutation, parsed, affected, receiptTargets, risk);
+    const shadow = await this.#shadowReceipts(mutation, parsed, receiptTargets);
     const receipt = createReceipt({
       id: context.id,
       mutation,
@@ -1724,7 +2227,12 @@ export class StaleZeroEngine {
       risk,
       slo,
       proofs,
+      proofStatus,
       cost: estimateCost(receiptTargets),
+      freshness: this.#freshness(mutation, affected, receiptTargets, durationMs),
+      changedFields,
+      rollout,
+      shadow,
       approval
     });
 
@@ -1745,6 +2253,7 @@ export class StaleZeroEngine {
     }
 
     await this.#audit({ type: "receipt", receipt });
+    await this.#notify(receipt);
 
     if (consistency === "strict" && receipt.hasBlockingFailures()) {
       throw new StaleZeroExecutionError(receipt);
@@ -1881,6 +2390,158 @@ export class StaleZeroEngine {
     });
   }
 
+  #applyProfile(mutation: string, options: ChangedOptions | undefined): ChangedOptions | undefined {
+    const profileName = options?.profile ?? mutation;
+    const profile = this.#profiles.get(profileName);
+    if (!profile) {
+      return options;
+    }
+    return {
+      ...options,
+      consistency: options?.consistency ?? profile.mode,
+      prove: options?.prove ?? profile.prove,
+      proofRetries: options?.proofRetries ?? profile.proofRetries,
+      proofTimeoutMs: options?.proofTimeoutMs ?? profile.proofTimeoutMs,
+      idempotencyKey:
+        options?.idempotencyKey ??
+        (profile.idempotency ? `${mutation}:${stableHash(options?.actor ?? "actor")}:${Date.now()}` : undefined)
+    };
+  }
+
+  async #rolloutReceipt(
+    mutation: string,
+    input: unknown,
+    affected: EntityRef[],
+    targets: TargetRef[],
+    risk: RiskResult
+  ): Promise<Receipt["rollout"]> {
+    const config = this.#rollouts.get(mutation);
+    if (!config) {
+      return undefined;
+    }
+    const percentage = config.percentage ?? 100;
+    const tenant = isRecord(input) ? String(input.tenantId ?? "") : "";
+    const environmentMatch = !config.environments?.length || Boolean(this.#config.environment && config.environments.includes(this.#config.environment));
+    const tenantMatch = !config.tenants?.length || (tenant !== "" && config.tenants.includes(tenant));
+    const active = environmentMatch && tenantMatch && rolloutBucket(`${mutation}:${stableHash(input)}`) < percentage;
+    let difference: NonNullable<Receipt["rollout"]>["difference"] | undefined = undefined;
+    if (active && config.compareWith && this.#mutations.has(config.compareWith)) {
+      const current = {
+        version: 1 as const,
+        mutation,
+        input,
+        affected,
+        targets,
+        risk,
+        createdAt: new Date().toISOString()
+      };
+      const previous = await this.snapshot(config.compareWith, input);
+      difference = (await this.compareSnapshots(previous, current)).toJSON();
+    }
+    return {
+      name: mutation,
+      active,
+      percentage,
+      difference
+    };
+  }
+
+  async #shadowReceipts(mutation: string, input: unknown, productionTargets: TargetRef[]): Promise<Receipt["shadow"]> {
+    const shadows = [...this.#shadows.entries()].filter(([, config]) => config.from === mutation);
+    if (shadows.length === 0) {
+      return undefined;
+    }
+    const production = productionTargets.map(targetSignature).sort();
+    const result: NonNullable<Receipt["shadow"]> = [];
+    for (const [name, config] of shadows) {
+      if (!this.#mutations.has(name) && !this.#manifest?.mutations[name]) {
+        continue;
+      }
+      const preview = await this.preview(name, input);
+      const shadowTargets = preview.targets.map(targetSignature).sort();
+      result.push({
+        name,
+        from: config.from,
+        productionTargets: production,
+        shadowTargets,
+        added: shadowTargets.filter((item) => !production.includes(item)),
+        removed: production.filter((item) => !shadowTargets.includes(item))
+      });
+    }
+    return result.length ? result : undefined;
+  }
+
+  #freshness(mutation: string, affected: EntityRef[], targets: TargetRef[], durationMs: number): FreshnessStatus | undefined {
+    const checks: FreshnessStatus["checks"] = [];
+    const names = uniqueStrings([
+      mutation,
+      ...affected.flatMap((ref) => [ref.type, `${ref.type}:${ref.id}`]),
+      ...targets.flatMap((targetRef) => [targetRef.adapter, `${targetRef.adapter}:${targetRef.key}`, targetSignature(targetRef)])
+    ]);
+    for (const name of names) {
+      const budget = this.#freshnessBudgets.get(name);
+      if (!budget) {
+        continue;
+      }
+      checks.push({
+        name,
+        status: durationMs <= budget.maxStaleMs ? "met" : "violated",
+        actualMs: durationMs,
+        maxStaleMs: budget.maxStaleMs
+      });
+    }
+    if (checks.length === 0) {
+      return undefined;
+    }
+    return {
+      status: checks.every((check) => check.status === "met") ? "met" : "violated",
+      checks
+    };
+  }
+
+  async #notify(receipt: Receipt): Promise<void> {
+    if (this.#notifyConfigs.length === 0) {
+      return;
+    }
+    const severity = receipt.status === "failed" ? "failed" : receipt.status === "partial" ? "partial" : receipt.risk?.level;
+    for (const config of this.#notifyConfigs) {
+      const only = config.only ?? ["failed", "partial", "critical"];
+      if (!only.includes("all") && (!severity || !only.includes(severity as "failed" | "partial" | "critical" | "high"))) {
+        continue;
+      }
+      const message = {
+        title: `StaleZero alert: ${receipt.mutation} ${receipt.status}`,
+        body: receipt.toText(),
+        receipt: receipt.toJSON()
+      };
+      try {
+        await config.handler?.(message);
+        const body = JSON.stringify({ text: `${message.title}\n${message.body}` });
+        if (config.slack) {
+          await fetch(config.slack, { method: "POST", headers: { "content-type": "application/json" }, body });
+        }
+        if (config.discord) {
+          await fetch(config.discord, { method: "POST", headers: { "content-type": "application/json" }, body });
+        }
+      } catch {
+        // Notification failures must not change mutation behavior.
+      }
+    }
+  }
+
+  async #chaosBeforeExecute(targetRef: TargetRef): Promise<void> {
+    const config = this.#chaosConfig;
+    if (!config || (config.adapter && config.adapter !== targetRef.adapter)) {
+      return;
+    }
+    if ((config.slowRate ?? 0) > Math.random()) {
+      await sleep(Math.floor(Math.random() * (config.maxDelayMs ?? 250)));
+    }
+    if ((config.failRate ?? 0) > Math.random()) {
+      throw new Error(`Chaos mode failed ${targetRef.adapter}:${targetRef.key}`);
+    }
+  }
+
   async #executeTargets(targets: TargetRef[], context: MutationContext): Promise<ExecutionResult[]> {
     const batches = new Map<string, TargetRef[]>();
     const singles: Array<{ targetRef: TargetRef; index: number }> = [];
@@ -1918,7 +2579,7 @@ export class StaleZeroEngine {
     return indexed.sort((left, right) => left.index - right.index).map((entry) => entry.result);
   }
 
-  async #proveTargets(targets: TargetRef[], context: MutationContext, timeoutMs?: number): Promise<StateProof[]> {
+  async #proveTargets(targets: TargetRef[], context: MutationContext, timeoutMs?: number, retries = 0): Promise<StateProof[]> {
     return mapLimit(targets, this.#config.execution.concurrency ?? 10, async (targetRef) => {
       const started = now();
       const adapter = this.#adapters.get(targetRef.adapter);
@@ -1930,6 +2591,8 @@ export class StaleZeroEngine {
           status: "skipped",
           durationMs: 0,
           target: targetRef,
+          required: targetRef.required !== false,
+          attempts: 0,
           message: "dry run"
         };
       }
@@ -1941,39 +2604,55 @@ export class StaleZeroEngine {
           status: "skipped",
           durationMs: 0,
           target: targetRef,
+          required: targetRef.required !== false,
+          attempts: 0,
           message: "adapter has no verify method"
         };
       }
-      try {
-        const result = await withTimeout(
-          () => adapter.verify?.(targetRef, context),
-          timeoutMs ?? targetRef.timeoutMs ?? this.#config.execution.timeoutMs ?? 3000,
-          `${targetRef.adapter} proof ${targetRef.key}`
-        );
-        const normalized =
-          typeof result === "object" && result !== null
-            ? result
-            : { ok: result === true, message: typeof result === "string" ? result : undefined };
-        return {
-          adapter: targetRef.adapter,
-          key: targetRef.key,
-          action: targetRef.action,
-          status: normalized.ok ? "passed" : "failed",
-          durationMs: now() - started,
-          target: targetRef,
-          message: normalized.message
-        };
-      } catch (error) {
-        return {
-          adapter: targetRef.adapter,
-          key: targetRef.key,
-          action: targetRef.action,
-          status: "failed",
-          durationMs: now() - started,
-          target: targetRef,
-          error: serializeError(error)
-        };
+      let attempt = 0;
+      let lastError: unknown;
+      while (attempt < Math.max(1, retries + 1)) {
+        attempt += 1;
+        try {
+          const result = await withTimeout(
+            () => adapter.verify?.(targetRef, context),
+            timeoutMs ?? targetRef.timeoutMs ?? this.#config.execution.timeoutMs ?? 3000,
+            `${targetRef.adapter} proof ${targetRef.key}`
+          );
+          const normalized = normalizeProofResult(result);
+          if (normalized.status === "confirmed" || attempt > retries) {
+            return {
+              adapter: targetRef.adapter,
+              key: targetRef.key,
+              action: targetRef.action,
+              status: normalized.status,
+              durationMs: now() - started,
+              target: targetRef,
+              required: targetRef.required !== false,
+              attempts: attempt,
+              evidence: normalized.evidence,
+              message: normalized.message,
+              error: normalized.error ? serializeError(normalized.error) : undefined
+            };
+          }
+        } catch (error) {
+          lastError = error;
+          if (attempt <= retries) {
+            await sleep(this.#retryDelay(attempt));
+          }
+        }
       }
+      return {
+        adapter: targetRef.adapter,
+        key: targetRef.key,
+        action: targetRef.action,
+        status: "failed",
+        durationMs: now() - started,
+        target: targetRef,
+        required: targetRef.required !== false,
+        attempts: attempt,
+        error: serializeError(lastError)
+      };
     });
   }
 
@@ -2042,6 +2721,7 @@ export class StaleZeroEngine {
     while (attempt < maxAttempts) {
       attempt += 1;
       try {
+        await this.#chaosBeforeExecute(targetRef);
         await withTimeout(
           () => adapter.execute(targetRef, context),
           targetRef.timeoutMs ?? this.#config.execution.timeoutMs ?? 3000,
@@ -2174,9 +2854,10 @@ export class StaleZeroEngine {
     return uniqueEntities([...explicit, ...affected]);
   }
 
-  async #targets(mutation: string, input: unknown, context: MutationContext, explicit: TargetRef[]): Promise<TargetRef[]> {
+  async #targets(mutation: string, input: unknown, context: MutationContext, explicit: TargetRef[], changedFields: string[] = []): Promise<TargetRef[]> {
     const definition = this.#mutations.get(mutation);
     const inlineTargets = definition?.targets ? await definition.targets(input, context) : [];
+    const routeTargets = await this.#routeTargets(definition, input, context, changedFields);
     const mirrorTargets: TargetRef[] = [];
 
     for (const mirror of this.#mirrors.values()) {
@@ -2189,7 +2870,36 @@ export class StaleZeroEngine {
       }
     }
 
-    return uniqueTargets([...explicit, ...inlineTargets, ...mirrorTargets]);
+    const targets = uniqueTargets([...explicit, ...inlineTargets, ...routeTargets, ...mirrorTargets]);
+    return filterTargetsByRoutes(targets, definition, changedFields);
+  }
+
+  async #routeTargets(
+    definition: MutationDefinition | undefined,
+    input: unknown,
+    context: MutationContext,
+    changedFields: string[]
+  ): Promise<TargetRef[]> {
+    if (!definition?.routes || changedFields.length === 0) {
+      return [];
+    }
+    const routed: TargetRef[] = [];
+    for (const field of changedFields) {
+      const route = definition.routes[field];
+      if (!route) {
+        continue;
+      }
+      if (typeof route === "function") {
+        routed.push(...(await route(input, context)));
+      } else {
+        for (const item of route) {
+          if (isTargetRef(item)) {
+            routed.push(item);
+          }
+        }
+      }
+    }
+    return routed;
   }
 
   async #context(
@@ -2277,13 +2987,17 @@ export class StaleZeroEngine {
 
   #previewFromParts(mutation: string, input: unknown, affected: EntityRef[], targets: TargetRef[], risk: RiskResult): Preview {
     const redactedInput = this.#redact(input);
+    const targetConfidence = previewConfidenceForTargets(targets);
+    const confidence = summarizePreviewConfidence(targetConfidence);
     return {
       mutation,
       input: redactedInput,
       affected,
       targets,
       risk,
-      toJSON: () => ({ mutation, input: redactedInput, affected, targets, risk }),
+      confidence,
+      targetConfidence,
+      toJSON: () => ({ mutation, input: redactedInput, affected, targets, risk, confidence, targetConfidence }),
       toText: () =>
         receiptToText({
           id: "preview",
@@ -2787,6 +3501,313 @@ function estimateCost(targets: TargetRef[]): CostReport {
     estimatedExternalCalls,
     reasons
   };
+}
+
+function normalizeProofResult(
+  result: boolean | string | ProofResult | { ok: boolean; message?: string; evidence?: unknown } | void
+): ProofResult {
+  if (result === true) {
+    return { status: "confirmed" };
+  }
+  if (result === false || result === undefined) {
+    return { status: "failed", message: result === undefined ? "verify returned no result" : undefined };
+  }
+  if (typeof result === "string") {
+    return { status: "confirmed", message: result };
+  }
+  if ("status" in result) {
+    return result;
+  }
+  return {
+    status: result.ok ? "confirmed" : "failed",
+    message: result.message,
+    evidence: result.evidence
+  };
+}
+
+function proofRequiredFailure(proofs: StateProof[] | undefined): boolean {
+  return Boolean(proofs?.some((proof) => proof.required && proof.status === "failed"));
+}
+
+function proofStatusFrom(proofs: StateProof[] | undefined): ProofResult["status"] | undefined {
+  if (!proofs) {
+    return undefined;
+  }
+  if (proofs.some((proof) => proof.required && proof.status === "failed")) {
+    return "failed";
+  }
+  if (proofs.some((proof) => proof.status === "confirmed")) {
+    return "confirmed";
+  }
+  return "skipped";
+}
+
+function inferChangedFields(input: unknown): string[] {
+  if (!isRecord(input)) {
+    return [];
+  }
+  if (Array.isArray(input.fields)) {
+    return input.fields.map(String);
+  }
+  if (isRecord(input.before) && isRecord(input.after)) {
+    const before = input.before;
+    const after = input.after;
+    const keys = uniqueStrings([...Object.keys(before), ...Object.keys(after)]);
+    return keys.filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]));
+  }
+  if (isRecord(input.after)) {
+    return Object.keys(input.after);
+  }
+  return Object.keys(input).filter((key) => !["actor", "tenantId", "requestId"].includes(key));
+}
+
+function filterTargetsByRoutes(targets: TargetRef[], definition: MutationDefinition | undefined, changedFields: string[]): TargetRef[] {
+  if (!definition?.routes || changedFields.length === 0) {
+    return targets;
+  }
+  const routeValues: Array<string | TargetRef> = [];
+  for (const field of changedFields) {
+    const route = definition.routes[field];
+    if (Array.isArray(route)) {
+      routeValues.push(...(route as Array<string | TargetRef>));
+    }
+  }
+  const namedRoutes = routeValues.filter((item): item is string => typeof item === "string");
+  const routeTargets = routeValues.filter(isTargetRef).map(targetSignature);
+  if (namedRoutes.length === 0 && routeTargets.length === 0) {
+    return targets;
+  }
+  return targets.filter((targetRef) => {
+    const signature = targetSignature(targetRef);
+    return (
+      routeTargets.includes(signature) ||
+      namedRoutes.some(
+        (name) =>
+          targetRef.label === name ||
+          targetRef.key === name ||
+          signature === name ||
+          signature.includes(name) ||
+          `${targetRef.adapter}:${targetRef.key}` === name
+      )
+    );
+  });
+}
+
+function previewConfidenceForTargets(
+  targets: TargetRef[]
+): Array<{ target: TargetRef; confidence: PreviewConfidence; reasons: string[] }> {
+  return targets.map((targetRef) => {
+    const reasons: string[] = [];
+    let confidence: PreviewConfidence = "exact";
+    if (targetRef.key.includes("*") || Boolean(targetRef.meta?.pattern)) {
+      confidence = "unsafe";
+      reasons.push("wildcard target");
+    } else if (["search", "http", "cdn", "job", "queue", "socket"].includes(targetRef.adapter)) {
+      confidence = "estimated";
+      reasons.push("external system confirms final effect");
+    }
+    if (targetRef.adapter === "manifest") {
+      confidence = "unknown";
+      reasons.push("loaded from manifest without runtime target details");
+    }
+    return { target: targetRef, confidence, reasons: reasons.length ? reasons : ["deterministic target"] };
+  });
+}
+
+function summarizePreviewConfidence(
+  targetConfidence: Array<{ target: TargetRef; confidence: PreviewConfidence; reasons: string[] }>
+): PreviewConfidence {
+  if (targetConfidence.some((item) => item.confidence === "unsafe")) {
+    return "unsafe";
+  }
+  if (targetConfidence.some((item) => item.confidence === "unknown")) {
+    return "unknown";
+  }
+  if (targetConfidence.some((item) => item.confidence === "estimated")) {
+    return "estimated";
+  }
+  return "exact";
+}
+
+function builtInLintFindings(
+  manifest: Manifest,
+  mutations: Map<string, MutationDefinition>,
+  mirrors: Map<string, MirrorRecord>,
+  adapters: Map<string, Adapter>,
+  approvalGates: Map<string, ApprovalConfig>
+): GraphLintFinding[] {
+  const findings: GraphLintFinding[] = [];
+  for (const [name, item] of Object.entries(manifest.mutations)) {
+    const definition = mutations.get(name);
+    if (!definition?.schema) {
+      findings.push({ rule: "missing-schema", severity: "warn", subject: name, message: "mutation has no schema" });
+    }
+    if (!definition?.owner) {
+      findings.push({ rule: "missing-owner", severity: "warn", subject: name, message: "mutation has no owner" });
+    }
+    if (item.mirrors.length === 0) {
+      findings.push({ rule: "no-targets", severity: "info", subject: name, message: "mutation has no targets" });
+    }
+    if (item.mirrors.length > 50) {
+      findings.push({ rule: "too-many-targets", severity: "warn", subject: name, message: `${item.mirrors.length} targets may need batching or coalescing` });
+    }
+    if (/delete|purge|tenant/i.test(name) && !approvalGates.has(name)) {
+      findings.push({ rule: "missing-approval", severity: "error", subject: name, message: "destructive mutation has no approval gate" });
+    }
+  }
+  for (const [name, mirror] of mirrors) {
+    if (!mirror.definition.owner) {
+      findings.push({ rule: "target-missing-owner", severity: "warn", subject: name, message: "target has no owner" });
+    }
+    if (mirror.definition.when.length === 0) {
+      findings.push({ rule: "unreachable-target", severity: "error", subject: name, message: "target is never reached" });
+    }
+    if (/redis/i.test(name) && /(^\*$|:\*$|\*)/.test(name)) {
+      findings.push({ rule: "unsafe-redis-pattern", severity: "error", subject: name, message: "Redis wildcard target requires an explicit sandbox" });
+    }
+    if (/http|webhook/i.test(name) && !/allow|safe|signed/i.test(name)) {
+      findings.push({ rule: "http-allowlist", severity: "warn", subject: name, message: "HTTP target should document allowlist and signing" });
+    }
+  }
+  const usedAdapters = new Set([...mirrors.keys()].map(inferAdapterFromMirrorName));
+  for (const adapter of adapters.keys()) {
+    if (!usedAdapters.has(adapter)) {
+      findings.push({ rule: "unused-adapter", severity: "info", subject: adapter, message: "adapter is registered but not used by the graph" });
+    }
+  }
+  return findings;
+}
+
+async function asyncFlatMap<T, TResult>(items: T[], task: (item: T) => MaybePromise<TResult[]>): Promise<TResult[]> {
+  const nested = await Promise.all(items.map(task));
+  return nested.flat();
+}
+
+function heatmapFromReceipts(receipts: Receipt[]): HeatmapReport {
+  const mutationGroups = groupBy(receipts, (receipt) => receipt.mutation);
+  const hotMutations = [...mutationGroups.entries()]
+    .map(([mutation, group]) => ({
+      mutation,
+      count: group.length,
+      failureRate: ratio(group.filter((receipt) => receipt.status === "failed" || receipt.status === "partial").length, group.length),
+      p95Ms: percentile(group.map((receipt) => receipt.durationMs), 95),
+      riskScore: Math.max(...group.map((receipt) => receipt.risk?.score ?? 0), 0),
+      costScore: Math.max(...group.map((receipt) => receipt.cost?.score ?? 0), 0),
+      owner: group.find((receipt) => receipt.owner)?.owner
+    }))
+    .sort((left, right) => right.count - left.count);
+  const targetResults = receipts.flatMap((receipt) => receipt.results);
+  const targetGroups = groupBy(targetResults, (result) => `${result.adapter}:${result.key}`);
+  const slowTargets = [...targetGroups.entries()]
+    .map(([targetName, group]) => ({
+      target: targetName,
+      count: group.length,
+      p95Ms: percentile(group.map((result) => result.durationMs), 95),
+      failureRate: ratio(group.filter((result) => result.status === "failed").length, group.length)
+    }))
+    .sort((left, right) => right.p95Ms - left.p95Ms);
+  const adapterGroups = groupBy(targetResults, (result) => result.adapter);
+  const adapterVolume = [...adapterGroups.entries()]
+    .map(([adapter, group]) => ({
+      adapter,
+      count: group.length,
+      failureRate: ratio(group.filter((result) => result.status === "failed").length, group.length)
+    }))
+    .sort((left, right) => right.count - left.count);
+  return { hotMutations, slowTargets, adapterVolume };
+}
+
+function optimizationSuggestions(receipts: Receipt[]): OptimizationReport["suggestions"] {
+  const suggestions: OptimizationReport["suggestions"] = [];
+  const allTargets = receipts.flatMap((receipt) => receipt.targets.map((targetRef) => ({ receipt, targetRef })));
+  const targetGroups = groupBy(allTargets, (item) => targetSignature(item.targetRef));
+  for (const [signature, group] of targetGroups) {
+    if (group.length >= 3) {
+      suggestions.push({
+        title: `${signature} repeats across ${group.length} receipts`,
+        suggestion: "coalesce this target for 250-500ms or batch it by adapter",
+        estimatedReduction: Math.min(90, Math.round((1 - 1 / group.length) * 100)),
+        target: signature
+      });
+    }
+  }
+  for (const receipt of receipts) {
+    if (receipt.targets.length > 25) {
+      suggestions.push({
+        title: `${receipt.mutation} has a broad blast radius`,
+        suggestion: "split targets into required and optional groups, then add field-level routing",
+        estimatedReduction: 25,
+        mutation: receipt.mutation
+      });
+    }
+    if (receipt.targets.some((targetRef) => targetRef.adapter === "socket" && /all|tenant|broadcast/i.test(targetRef.key))) {
+      suggestions.push({
+        title: `${receipt.mutation} broadcasts a socket target`,
+        suggestion: "narrow the room to the affected entity or actor",
+        estimatedReduction: 40,
+        mutation: receipt.mutation
+      });
+    }
+  }
+  return suggestions.slice(0, 10);
+}
+
+function badgeSvg(label: string, message: string, color: string): string {
+  const labelWidth = Math.max(72, label.length * 7 + 12);
+  const messageWidth = Math.max(72, message.length * 7 + 12);
+  const width = labelWidth + messageWidth;
+  const safeLabel = escapeXml(label);
+  const safeMessage = escapeXml(message);
+  const safeColor = escapeXml(color);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="20" role="img" aria-label="${safeLabel}: ${safeMessage}"><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><rect rx="3" width="${width}" height="20" fill="#111827"/><rect rx="3" x="${labelWidth}" width="${messageWidth}" height="20" fill="${safeColor}"/><rect width="${width}" height="20" fill="url(#s)"/><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,sans-serif" font-size="11"><text x="${Math.floor(labelWidth / 2)}" y="14">${safeLabel}</text><text x="${labelWidth + Math.floor(messageWidth / 2)}" y="14">${safeMessage}</text></g></svg>`;
+}
+
+function humanTarget(targetRef: TargetRef): string {
+  if (targetRef.adapter === "redis") return `Redis ${targetRef.key}`;
+  if (targetRef.adapter === "query") return `query ${targetRef.key}`;
+  if (targetRef.adapter === "next") return `Next ${targetRef.key}`;
+  if (targetRef.adapter === "socket") return `socket room ${targetRef.key}`;
+  if (targetRef.adapter === "search") return `search ${targetRef.key}`;
+  return `${targetRef.adapter} ${targetRef.key}`;
+}
+
+function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const groupKey = key(item);
+    groups.set(groupKey, [...(groups.get(groupKey) ?? []), item]);
+  }
+  return groups;
+}
+
+function percentile(values: number[], percentileRank: number): number {
+  if (values.length === 0) {
+    return 0;
+  }
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.min(sorted.length - 1, Math.ceil((percentileRank / 100) * sorted.length) - 1);
+  return sorted[index] ?? 0;
+}
+
+function ratio(count: number, total: number): number {
+  return total === 0 ? 0 : Number((count / total).toFixed(4));
+}
+
+function stableHash(value: unknown): string {
+  const input = JSON.stringify(value, Object.keys(isRecord(value) ? value : {}).sort());
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash * 31 + input.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(16);
+}
+
+function rolloutBucket(seed: string): number {
+  return Number.parseInt(stableHash(seed).slice(0, 8), 16) % 100;
+}
+
+function escapeXml(value: string): string {
+  return value.replace(/[<>&"]/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[char] ?? char);
 }
 
 function isSafeReplayTarget(targetRef: TargetRef): boolean {

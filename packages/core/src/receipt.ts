@@ -16,9 +16,14 @@ export function createReceipt(input: {
   risk?: Receipt["risk"];
   slo?: Receipt["slo"];
   proofs?: Receipt["proofs"];
+  proofStatus?: Receipt["proofStatus"];
   flow?: Receipt["flow"];
   undo?: Receipt["undo"];
   cost?: Receipt["cost"];
+  freshness?: Receipt["freshness"];
+  changedFields?: Receipt["changedFields"];
+  rollout?: Receipt["rollout"];
+  shadow?: Receipt["shadow"];
   approval?: Receipt["approval"];
 }): Receipt {
   const snapshot: ReceiptSnapshot = {
@@ -37,9 +42,14 @@ export function createReceipt(input: {
     risk: input.risk,
     slo: input.slo,
     proofs: input.proofs,
+    proofStatus: input.proofStatus,
     flow: input.flow,
     undo: input.undo,
     cost: input.cost,
+    freshness: input.freshness,
+    changedFields: input.changedFields,
+    rollout: input.rollout,
+    shadow: input.shadow,
     approval: input.approval
   };
 
@@ -105,9 +115,31 @@ export function receiptToText(receipt: ReceiptSnapshot): string {
   }
 
   if (receipt.proofs?.length) {
-    lines.push("", "Proof:");
+    lines.push("", `Proof${receipt.proofStatus ? `: ${receipt.proofStatus}` : ""}:`);
     for (const proof of receipt.proofs) {
       lines.push(`- ${proof.status} ${proof.adapter} ${proof.key}${proof.message ? `: ${proof.message}` : ""}`);
+    }
+  }
+
+  if (receipt.freshness) {
+    lines.push("", `Freshness: ${receipt.freshness.status}`);
+    for (const check of receipt.freshness.checks) {
+      lines.push(`- ${check.status} ${check.name}: ${check.actualMs}ms / ${check.maxStaleMs}ms`);
+    }
+  }
+
+  if (receipt.changedFields?.length) {
+    lines.push("", "Changed fields:", ...receipt.changedFields.map((field) => `- ${field}`));
+  }
+
+  if (receipt.rollout) {
+    lines.push("", `Rollout: ${receipt.rollout.name} ${receipt.rollout.active ? "active" : "inactive"}`);
+  }
+
+  if (receipt.shadow?.length) {
+    lines.push("", "Shadow:");
+    for (const shadow of receipt.shadow) {
+      lines.push(`- ${shadow.name}: +${shadow.added.length} -${shadow.removed.length}`);
     }
   }
 

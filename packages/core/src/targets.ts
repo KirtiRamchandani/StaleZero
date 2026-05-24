@@ -1,7 +1,7 @@
 import type { EntityRef, TargetAction, TargetRef } from "./types.js";
 
-export function entity(type: string, id: string | number): EntityRef {
-  return { type, id: String(id) };
+export function entity(type: string, id: string | number, options: Omit<EntityRef, "type" | "id"> = {}): EntityRef {
+  return { type, id: String(id), ...options };
 }
 
 export function target(

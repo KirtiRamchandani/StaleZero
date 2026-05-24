@@ -3,7 +3,7 @@
     [
       "npm pack all packages",
       "pass",
-      "48216ms"
+      "36721ms"
     ],
     [
       "npm publish --workspaces --provenance --dry-run",
