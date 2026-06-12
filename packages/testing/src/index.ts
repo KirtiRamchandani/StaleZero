@@ -138,6 +138,9 @@ export function adapterContractSuite(options: AdapterContractOptions): Array<{ n
   ];
 }
 
+export const createConformanceTests = adapterContractSuite;
+export const createAdapterTestSuite = adapterContractSuite;
+
 export const vitestMatchers = {
   toAffect(receipt: Receipt, type: string, id: string) {
     try {

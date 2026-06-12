@@ -17,7 +17,9 @@
     "dist"
   ],
   "dependencies": {
-    "@stalezero/core": "0.1.0"
+    "@stalezero/core": "0.1.0",
+    "create-stalezero-adapter-template": "0.1.0",
+    "create-stalezero": "0.1.0"
   },
   "scripts": {
     "build": "tsc -b",

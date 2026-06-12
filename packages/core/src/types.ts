@@ -190,6 +190,14 @@ export type ShadowReceiptInfo = {
 
 export const RECEIPT_SCHEMA_VERSION = 1;
 
+export type ReceiptListOptions = {
+  limit?: number;
+  mutation?: string;
+  actor?: string;
+  tenant?: string;
+  status?: ReceiptStatus;
+};
+
 export type Receipt = {
   schemaVersion: number;
   id: string;
@@ -202,6 +210,9 @@ export type Receipt = {
   durationMs: number;
   timestamp: number;
   app?: string;
+  environment?: string;
+  actor?: string;
+  tenant?: string;
   traceId?: string;
   owner?: string;
   risk?: RiskResult;
@@ -220,11 +231,16 @@ export type Receipt = {
     granted: boolean;
     approver?: string;
   };
+  hash?: string;
+  previousHash?: string;
+  signature?: string;
   toJSON: () => ReceiptSnapshot;
   toText: () => string;
   toMarkdown: () => string;
   toSlack: () => string;
   toMermaid: () => string;
+  toHtml: () => string;
+  toGitHubComment: () => string;
   hasFailures: () => boolean;
   hasBlockingFailures: () => boolean;
   assertSuccess: () => void;
@@ -232,7 +248,7 @@ export type Receipt = {
 
 export type ReceiptSnapshot = Omit<
   Receipt,
-  "toJSON" | "toText" | "toMarkdown" | "toSlack" | "toMermaid" | "hasFailures" | "hasBlockingFailures" | "assertSuccess"
+  "toJSON" | "toText" | "toMarkdown" | "toSlack" | "toMermaid" | "toHtml" | "toGitHubComment" | "hasFailures" | "hasBlockingFailures" | "assertSuccess"
 >;
 
 export type SchemaLike<Input> =
@@ -359,9 +375,9 @@ export type EventBus = {
 export type ReceiptStore = {
   save: (receipt: Receipt) => MaybePromise<void>;
   get: (id: string) => MaybePromise<Receipt | undefined>;
-  list: (options?: { limit?: number; mutation?: string }) => MaybePromise<Receipt[]>;
+  list: (options?: ReceiptListOptions) => MaybePromise<Receipt[]>;
   prune?: (options?: { maxAgeMs?: number; maxEntries?: number }) => MaybePromise<number>;
-  export?: (options?: { mutation?: string }) => MaybePromise<Receipt[]>;
+  export?: (options?: ReceiptListOptions) => MaybePromise<Receipt[]>;
 };
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -485,6 +501,22 @@ export type HeatmapReport = {
   hotMutations: Array<{ mutation: string; count: number; failureRate: number; p95Ms: number; riskScore: number; costScore: number; owner?: string }>;
   slowTargets: Array<{ target: string; count: number; p95Ms: number; failureRate: number }>;
   adapterVolume: Array<{ adapter: string; count: number; failureRate: number }>;
+};
+
+export type FreshnessSloDashboardReport = {
+  totalReceipts: number;
+  freshness: {
+    met: number;
+    violated: number;
+    notConfigured: number;
+    violations: Array<{ mutation: string; check: string; actualMs: number; maxStaleMs: number; receiptId: string }>;
+  };
+  slo: {
+    passed: number;
+    failed: number;
+    failures: Array<{ mutation: string; check: string; message?: string; receiptId: string }>;
+  };
+  toText: () => string;
 };
 
 export type OptimizationReport = {

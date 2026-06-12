@@ -21,7 +21,11 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "action:run": "node dist/run.js"
+  },
+  "bin": {
+    "stalezero-github-action": "./dist/run.js"
   },
   "repository": {
     "type": "git",

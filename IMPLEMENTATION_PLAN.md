@@ -12,34 +12,47 @@ Core promise: declare the mutation once, preview the blast radius, execute safel
 
 | Phase | Focus | Status |
 | --- | --- | --- |
-| 1 | Stabilize core API, safety, tests | In progress |
-| 2 | Developer experience (CLI, docs, devtools) | Strong RC |
-| 3 | Production readiness (durable receipts, OTEL, drift) | In progress |
-| 4 | Ecosystem (recipes, templates, community adapters) | Partial |
+| 1 | Stabilize core API, safety, tests | Complete |
+| 2 | Developer experience (CLI, docs, devtools) | Complete |
+| 3 | Production readiness (durable receipts, OTEL, drift) | Complete |
+| 4 | Ecosystem (recipes, templates, community adapters) | Strong RC |
 
-## Shipped in This Cycle
+## Engine Architecture (split complete)
 
-- `createStaleZero.production()`, `.dev()`, `.test()` presets with safe defaults
-- `allowUndeclaredMutations` policy (`reject` in production, `warn` in development)
-- `StaleZeroError` hierarchy with typed codes and docs URLs
-- HTTP adapter SSRF checks, redirect protection, body/response limits
-- Cooperative `AbortSignal` on `MutationContext` and timeout helpers
-- `batchExecute` partial-result contract
-- Receipt schema versioning (`schemaVersion: 1`)
-- Durable stores: `FileReceiptStore`, `SqliteReceiptStore`, `PostgresReceiptStore`
-- Human receipt formatters: `toMarkdown()`, `toSlack()`, `toMermaid()`
-- Quick builder: `.dryRun()`, `.strict()`, `.withActor()`, `.prove()`, `.idempotencyKey()`
-- CLI: `run`, `dry-run`, `receipts list|show|export`, `graph --format mermaid|dot`
-- Production devtools auth requirement when `enabledInProduction` is true
+`packages/core/src/engine.ts` is a thin re-export. Logic lives in:
 
-## Next Priorities
+| Module | Responsibility |
+| --- | --- |
+| `engine/StaleZeroEngine.ts` | Main engine class |
+| `engine/builders.ts` | QuickMutationBuilder, FlowBuilder, ResourceBuilder |
+| `engine/api.ts` | Public `StaleZero` interface |
+| `engine/internal.ts` | Resolved config and internal types |
+| `engine/lifecycle.ts` | Pipeline hooks |
+| `create.ts` | `createStaleZero` + production/dev/test presets |
+| `utils/*` | Targeting, risk, proof, preview, lint, hashing, redaction, SLO dashboard |
 
-1. Split `engine.ts` into focused modules (`execution`, `preview`, `guards`, `proof`, `drift`)
-2. Docs site (VitePress) with versioned API reference
-3. GitHub Action workflow for PR mutation-graph diff comments
-4. Property/fuzz tests for redaction and dedupe determinism
-5. OpenTelemetry metrics exporters (Prometheus/Datadog)
-6. High-value adapters: BullMQ, Algolia, Memcached, CDN purge helpers
+## Shipped
+
+- Production/dev/test presets, typed errors, HTTP SSRF guards, AbortSignal timeouts
+- Engine split into focused modules
+- Receipt schema v1 with integrity hashing and rich formatters
+- Durable stores: Memory, File, SQLite, Postgres, Redis, **S3**, **DynamoDB**, **OpenSearch**
+- Receipt queries by mutation, actor, tenant, and status
+- Value-based redaction detectors + property tests
+- Adapter SDK + conformance test helpers
+- Adapters: BullMQ, Memcached, CDN; hardened Redis adapter
+- OpenTelemetry metrics hooks
+- VitePress docs site (`npm run docs:dev`)
+- GitHub Action PR mutation-graph diff
+- **`npm create stalezero`** app template (`create-stalezero` package)
+- CLI: drift (manifest + receipts), **freshness-dashboard**, app create, adapter create
+- Property/fuzz tests for dedupe determinism (`fast-check`)
+
+## Remaining (post-v1 ideas)
+
+- Hosted freshness/SLO visual dashboard UI
+- Additional community adapters (Algolia, Relay, framework-specific packs)
+- Receipt encryption-at-rest hooks
 
 ## Definition of Done
 

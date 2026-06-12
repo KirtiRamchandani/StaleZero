@@ -50,6 +50,14 @@ export type TracerLike = {
   startSpan: (name: string, options?: { attributes?: Record<string, string | number | boolean> }) => SpanLike;
 };
 
+export {
+  createInMemoryMetrics,
+  createStaleZeroMetricsHooks,
+  renderPrometheusMetrics,
+  type MetricsRecorder,
+  type StaleZeroMetrics
+} from "./metrics.js";
+
 export function createOpenTelemetryHooks(tracer: TracerLike): StaleZeroHooks {
   return {
     onReceipt: ({ receipt }) => {

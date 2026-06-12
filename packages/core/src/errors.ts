@@ -9,7 +9,13 @@ export type StaleZeroErrorCode =
   | "TIMEOUT"
   | "EXECUTION_FAILED"
   | "APPROVAL_REQUIRED"
-  | "CONFIG_ERROR";
+  | "CONFIG_ERROR"
+  | "TARGET_VALIDATION_ERROR"
+  | "ADAPTER_EXECUTION_ERROR"
+  | "TENANT_BOUNDARY_ERROR"
+  | "PAYLOAD_TOO_LARGE"
+  | "RECEIPT_STORE_ERROR"
+  | "PROOF_ERROR";
 
 export type StaleZeroErrorDetails = Record<string, unknown>;
 
@@ -82,6 +88,34 @@ export class StaleZeroExecutionError extends StaleZeroError {
     });
     this.name = "StaleZeroExecutionError";
     this.receipt = receipt;
+  }
+}
+
+export class StaleZeroApprovalRequiredError extends StaleZeroError {
+  constructor(mutation: string) {
+    super("APPROVAL_REQUIRED", `Approval required for ${mutation}`, { details: { mutation }, docsPath: "security-boundaries.md" });
+    this.name = "StaleZeroApprovalRequiredError";
+  }
+}
+
+export class StaleZeroTenantBoundaryError extends StaleZeroError {
+  constructor(message: string, details?: StaleZeroErrorDetails) {
+    super("TENANT_BOUNDARY_ERROR", message, { details, docsPath: "security-boundaries.md" });
+    this.name = "StaleZeroTenantBoundaryError";
+  }
+}
+
+export class StaleZeroPayloadTooLargeError extends StaleZeroError {
+  constructor(limitBytes: number) {
+    super("PAYLOAD_TOO_LARGE", `Mutation input exceeds payload limit (${limitBytes} bytes)`, { details: { limitBytes }, docsPath: "production.md" });
+    this.name = "StaleZeroPayloadTooLargeError";
+  }
+}
+
+export class StaleZeroProofError extends StaleZeroError {
+  constructor(message: string, details?: StaleZeroErrorDetails) {
+    super("PROOF_ERROR", message, { details, docsPath: "proof-mode.md" });
+    this.name = "StaleZeroProofError";
   }
 }
 

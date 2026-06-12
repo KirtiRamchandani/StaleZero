@@ -1,4 +1,5 @@
-import type { Receipt, ReceiptStore } from "./types.js";
+import { filterReceipts } from "./stores/filter.js";
+import type { Receipt, ReceiptListOptions, ReceiptStore } from "./types.js";
 
 export class MemoryReceiptStore implements ReceiptStore {
   readonly #receipts = new Map<string, Receipt>();
@@ -15,12 +16,8 @@ export class MemoryReceiptStore implements ReceiptStore {
     return this.#receipts.get(id);
   }
 
-  list(options: { limit?: number; mutation?: string } = {}): Receipt[] {
-    let receipts = [...this.#receipts.values()].sort((left, right) => this.#compareNewestFirst(left, right));
-    if (options.mutation) {
-      receipts = receipts.filter((receipt) => receipt.mutation === options.mutation);
-    }
-    return receipts.slice(0, options.limit ?? receipts.length);
+  list(options: ReceiptListOptions = {}): Receipt[] {
+    return filterReceipts([...this.#receipts.values()], options);
   }
 
   prune(options: { maxAgeMs?: number; maxEntries?: number } = {}): number {
@@ -46,8 +43,8 @@ export class MemoryReceiptStore implements ReceiptStore {
     return before - this.#receipts.size;
   }
 
-  export(options: { mutation?: string } = {}): Receipt[] {
-    return this.list({ mutation: options.mutation });
+  export(options: ReceiptListOptions = {}): Receipt[] {
+    return this.list(options);
   }
 
   #compareNewestFirst(left: Receipt, right: Receipt): number {

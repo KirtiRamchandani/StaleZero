@@ -12,6 +12,9 @@ export function createReceipt(input: {
   durationMs: number;
   timestamp: number;
   app?: string;
+  environment?: string;
+  actor?: string;
+  tenant?: string;
   traceId?: string;
   owner?: Receipt["owner"];
   risk?: Receipt["risk"];
@@ -26,6 +29,7 @@ export function createReceipt(input: {
   rollout?: Receipt["rollout"];
   shadow?: Receipt["shadow"];
   approval?: Receipt["approval"];
+  hash?: string;
   schemaVersion?: number;
 }): Receipt {
   const snapshot: ReceiptSnapshot = {
@@ -40,6 +44,9 @@ export function createReceipt(input: {
     durationMs: input.durationMs,
     timestamp: input.timestamp,
     app: input.app,
+    environment: input.environment,
+    actor: input.actor,
+    tenant: input.tenant,
     traceId: input.traceId,
     owner: input.owner,
     risk: input.risk,
@@ -53,7 +60,8 @@ export function createReceipt(input: {
     changedFields: input.changedFields,
     rollout: input.rollout,
     shadow: input.shadow,
-    approval: input.approval
+    approval: input.approval,
+    hash: input.hash
   };
 
   return {
@@ -63,6 +71,8 @@ export function createReceipt(input: {
     toMarkdown: () => receiptToMarkdown(snapshot),
     toSlack: () => receiptToSlack(snapshot),
     toMermaid: () => receiptToMermaid(snapshot),
+    toHtml: () => receiptToHtml(snapshot),
+    toGitHubComment: () => receiptToGitHubComment(snapshot),
     hasFailures: () => snapshot.results.some((result) => result.status === "failed"),
     hasBlockingFailures: () => snapshot.results.some((result) => result.status === "failed" && result.target.required !== false),
     assertSuccess: () => {
@@ -211,6 +221,43 @@ export function receiptToMermaid(receipt: ReceiptSnapshot): string {
     }
   });
   return lines.join("\n");
+}
+
+export function receiptToHtml(receipt: ReceiptSnapshot): string {
+  const rows = receipt.results
+    .map(
+      (result) =>
+        `<tr><td>${result.status}</td><td>${result.adapter}</td><td>${escapeHtml(result.key)}</td><td>${result.action}</td><td>${result.durationMs}ms</td></tr>`
+    )
+    .join("");
+  return `<!doctype html><html><head><meta charset="utf-8"/><title>Receipt ${escapeHtml(receipt.id)}</title><style>body{font:14px system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #d0d7de;padding:8px;text-align:left}</style></head><body><h1>${escapeHtml(receipt.mutation)}</h1><p>Status: <strong>${receipt.status}</strong> | Duration: ${receipt.durationMs}ms | Schema: v${receipt.schemaVersion}</p><table><thead><tr><th>Status</th><th>Adapter</th><th>Key</th><th>Action</th><th>Duration</th></tr></thead><tbody>${rows}</tbody></table><pre>${escapeHtml(receiptToText(receipt))}</pre></body></html>`;
+}
+
+export function receiptToGitHubComment(receipt: ReceiptSnapshot): string {
+  const failures = receipt.results.filter((result) => result.status === "failed");
+  return [
+    `### ${receipt.mutation} receipt \`${receipt.id}\``,
+    "",
+    `- Status: **${receipt.status}**`,
+    `- Duration: ${receipt.durationMs}ms`,
+    `- Targets: ${receipt.targets.length}`,
+    `- Failures: ${failures.length}`,
+    receipt.hash ? `- Hash: \`${receipt.hash}\`` : "",
+    "",
+    "<details><summary>Executed targets</summary>",
+    "",
+    "```txt",
+    receiptToText(receipt),
+    "```",
+    "",
+    "</details>"
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function escapeMermaid(value: string): string {

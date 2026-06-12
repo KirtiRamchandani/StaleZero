@@ -5,6 +5,8 @@ export {
   StaleZeroFlowBuilder,
   StaleZeroResourceBuilder
 } from "./engine.js";
+export { computeReceiptHash, stableHash, verifyReceiptHash, verifyReceiptIntegrity } from "./utils/hashing.js";
+export type { PipelineContext, PipelineHooks } from "./engine/lifecycle.js";
 export {
   StaleZeroError,
   StaleZeroValidationError,
@@ -13,6 +15,10 @@ export {
   StaleZeroTimeoutError,
   StaleZeroConfigError,
   StaleZeroExecutionError,
+  StaleZeroApprovalRequiredError,
+  StaleZeroTenantBoundaryError,
+  StaleZeroPayloadTooLargeError,
+  StaleZeroProofError,
   isStaleZeroError,
   STALEZERO_DOCS_BASE
 } from "./errors.js";
@@ -27,11 +33,31 @@ export { productionPreset, developmentPreset, testPreset, resolveStaleZeroMode }
 export { withTimeout } from "./timeout.js";
 export type { AutopilotRecipeOptions, CommandInput, MutationInput, ReceiptsApi, StaleZero } from "./engine.js";
 export { createId } from "./ids.js";
-export { createReceipt, receiptToText, receiptToMarkdown, receiptToSlack, receiptToMermaid } from "./receipt.js";
+export {
+  createReceipt,
+  receiptToText,
+  receiptToMarkdown,
+  receiptToSlack,
+  receiptToMermaid,
+  receiptToHtml,
+  receiptToGitHubComment
+} from "./receipt.js";
+export {
+  defineAdapter,
+  adapterMaturityBadge,
+  createAdapterConformancePlan,
+  type AdapterDefinition,
+  type AdapterConformanceOptions
+} from "./define-adapter.js";
 export { MemoryReceiptStore } from "./store.js";
 export { FileReceiptStore } from "./stores/file-store.js";
 export { PostgresReceiptStore } from "./stores/postgres-store.js";
+export { RedisReceiptStore, type RedisReceiptClient, type RedisReceiptStoreOptions } from "./stores/redis-store.js";
+export { S3ReceiptStore, type S3ReceiptClient, type S3ReceiptStoreOptions } from "./stores/s3-store.js";
+export { DynamoDbReceiptStore, type DynamoDbReceiptClient, type DynamoDbReceiptStoreOptions } from "./stores/dynamodb-store.js";
+export { OpenSearchReceiptStore, type OpenSearchReceiptClient, type OpenSearchReceiptStoreOptions } from "./stores/opensearch-store.js";
 export { SqliteReceiptStore } from "./stores/sqlite-store.js";
+export { freshnessSloDashboardFromReceipts } from "./utils/slo-dashboard.js";
 export {
   analyticsTarget,
   apolloTarget,
@@ -141,6 +167,7 @@ export type {
   GraphLintRule,
   GraphLintSeverity,
   HeatmapReport,
+  FreshnessSloDashboardReport,
   HumanReceipt,
   JsonPrimitive,
   JsonValue,
@@ -168,6 +195,7 @@ export type {
   ReceiptSnapshot,
   ReceiptStatus,
   ReceiptStore,
+  ReceiptListOptions,
   StaleZeroMode,
   UndeclaredMutationPolicy,
   DevtoolsConfig,

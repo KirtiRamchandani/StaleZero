@@ -14,6 +14,8 @@ export type RedisClientLike = {
 export type RedisAdapterOptions = {
   name?: string;
   prefix?: string;
+  allowedKeyPrefixes?: string[];
+  maxKeysPerExecute?: number;
   useUnlink?: boolean;
   allowKeysFallback?: boolean;
   scanCount?: number;
@@ -31,6 +33,7 @@ export function redisAdapter(client: RedisClientLike, options: RedisAdapterOptio
     execute: async (target, context) => {
       const key = withPrefix(options.prefix, target.key);
       const meta = target.meta ?? {};
+      assertAllowedKeyPrefix(key, options.allowedKeyPrefixes);
 
       if (target.action !== "delete" && target.action !== "remove" && target.action !== "custom") {
         throw new Error(`Redis adapter does not support ${target.action}`);
@@ -46,6 +49,9 @@ export function redisAdapter(client: RedisClientLike, options: RedisAdapterOptio
           assertSafePattern(key);
         }
         const keys = await scanKeys(client, key, options);
+        if (options.maxKeysPerExecute !== undefined && keys.length > options.maxKeysPerExecute) {
+          throw new Error(`Redis pattern ${key} matched ${keys.length} keys; maxKeysPerExecute is ${options.maxKeysPerExecute}`);
+        }
         if (keys.length > 0) {
           await deleteKeys(client, keys, options.useUnlink);
         }
@@ -113,5 +119,14 @@ function assertSafePattern(pattern: string): void {
   const stripped = pattern.replaceAll("*", "").replaceAll("?", "");
   if (!pattern.includes("*") || stripped.length < 3 || pattern === "*" || pattern.endsWith(":*:*")) {
     throw new Error(`Unsafe Redis pattern: ${pattern}`);
+  }
+}
+
+function assertAllowedKeyPrefix(key: string, allowedPrefixes: string[] | undefined): void {
+  if (!allowedPrefixes?.length) {
+    return;
+  }
+  if (!allowedPrefixes.some((prefix) => key.startsWith(prefix))) {
+    throw new Error(`Redis key ${key} is outside allowed prefixes: ${allowedPrefixes.join(", ")}`);
   }
 }

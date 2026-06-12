@@ -1,0 +1,47 @@
+{
+  "name": "create-stalezero",
+  "version": "0.1.0",
+  "description": "Starter kit for a production-ready StaleZero application with mutations, receipts, tests, and CI.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "create-stalezero": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@stalezero/core": "0.1.0",
+    "@stalezero/memory": "0.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KirtiRamchandani/StaleZero.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KirtiRamchandani/StaleZero/issues"
+  },
+  "homepage": "https://github.com/KirtiRamchandani/StaleZero#readme",
+  "keywords": [
+    "cache",
+    "invalidation",
+    "typescript",
+    "stalezero",
+    "mutation",
+    "receipts"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

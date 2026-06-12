@@ -1,5 +1,6 @@
 import { createReceipt } from "../receipt.js";
-import type { Receipt, ReceiptSnapshot, ReceiptStore } from "../types.js";
+import { filterReceipts } from "./filter.js";
+import type { Receipt, ReceiptListOptions, ReceiptSnapshot, ReceiptStore } from "../types.js";
 
 export type PostgresQueryClient = {
   query: (sql: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>> }>;
@@ -42,20 +43,24 @@ export class PostgresReceiptStore implements ReceiptStore {
     return hydrateReceipt(parsePayload(row.payload));
   }
 
-  async list(options: { limit?: number; mutation?: string } = {}): Promise<Receipt[]> {
+  async list(options: ReceiptListOptions = {}): Promise<Receipt[]> {
     const params: unknown[] = [];
-    let sql = `SELECT payload FROM ${this.#table}`;
+    const clauses: string[] = [];
     if (options.mutation) {
       params.push(options.mutation);
-      sql += ` WHERE mutation = $${params.length}`;
+      clauses.push(`mutation = $${params.length}`);
+    }
+    if (options.status) {
+      params.push(options.status);
+      clauses.push(`status = $${params.length}`);
+    }
+    let sql = `SELECT payload FROM ${this.#table}`;
+    if (clauses.length) {
+      sql += ` WHERE ${clauses.join(" AND ")}`;
     }
     sql += " ORDER BY timestamp DESC";
-    if (options.limit) {
-      params.push(options.limit);
-      sql += ` LIMIT $${params.length}`;
-    }
     const result = await this.#client.query(sql, params);
-    return result.rows.map((row) => hydrateReceipt(parsePayload(row.payload)));
+    return filterReceipts(result.rows.map((row) => hydrateReceipt(parsePayload(row.payload))), options);
   }
 
   async prune(options: { maxAgeMs?: number; maxEntries?: number } = {}): Promise<number> {
@@ -84,8 +89,8 @@ export class PostgresReceiptStore implements ReceiptStore {
     return removed;
   }
 
-  async export(options: { mutation?: string } = {}): Promise<Receipt[]> {
-    return this.list({ mutation: options.mutation });
+  async export(options: ReceiptListOptions = {}): Promise<Receipt[]> {
+    return this.list(options);
   }
 
   async #ensureSchema(): Promise<void> {
@@ -136,6 +141,9 @@ function hydrateReceipt(snapshot: ReceiptSnapshot): Receipt {
     rollout: snapshot.rollout,
     shadow: snapshot.shadow,
     approval: snapshot.approval,
+    actor: snapshot.actor,
+    tenant: snapshot.tenant,
+    environment: snapshot.environment,
     schemaVersion: snapshot.schemaVersion
   });
 }

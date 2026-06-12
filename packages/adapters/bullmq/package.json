@@ -1,0 +1,55 @@
+{
+  "name": "@stalezero/bullmq",
+  "version": "0.1.0",
+  "description": "BullMQ queue adapter for StaleZero.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@stalezero/core": "0.1.0"
+  },
+  "peerDependencies": {
+    "bullmq": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "bullmq": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KirtiRamchandani/StaleZero.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KirtiRamchandani/StaleZero/issues"
+  },
+  "homepage": "https://github.com/KirtiRamchandani/StaleZero#readme",
+  "keywords": [
+    "cache",
+    "invalidation",
+    "typescript",
+    "javascript",
+    "state",
+    "bullmq",
+    "queue",
+    "mutation",
+    "devtools",
+    "opentelemetry"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

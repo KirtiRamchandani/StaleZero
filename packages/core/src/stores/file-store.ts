@@ -1,7 +1,8 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { createReceipt, receiptToText } from "../receipt.js";
-import type { Receipt, ReceiptSnapshot, ReceiptStore } from "../types.js";
+import { filterReceipts } from "./filter.js";
+import type { Receipt, ReceiptListOptions, ReceiptSnapshot, ReceiptStore } from "../types.js";
 
 export type FileReceiptStoreOptions = {
   path: string;
@@ -36,7 +37,7 @@ export class FileReceiptStore implements ReceiptStore {
     return receipts.find((receipt) => receipt.id === id);
   }
 
-  async list(options: { limit?: number; mutation?: string } = {}): Promise<Receipt[]> {
+  async list(options: ReceiptListOptions = {}): Promise<Receipt[]> {
     let receipts: Receipt[];
     try {
       const raw = await readFile(this.#path, "utf8");
@@ -53,16 +54,11 @@ export class FileReceiptStore implements ReceiptStore {
       }
     }
 
-    if (options.mutation) {
-      receipts = receipts.filter((receipt) => receipt.mutation === options.mutation);
-    }
-    receipts.sort((left, right) => right.timestamp - left.timestamp);
-    const limit = options.limit ?? receipts.length;
-    const sliced = receipts.slice(0, limit);
-    for (const receipt of sliced) {
+    const filtered = filterReceipts(receipts, options);
+    for (const receipt of filtered) {
       this.#cache.set(receipt.id, receipt);
     }
-    return sliced;
+    return filtered;
   }
 
   async prune(options: { maxAgeMs?: number; maxEntries?: number } = {}): Promise<number> {
@@ -84,8 +80,8 @@ export class FileReceiptStore implements ReceiptStore {
     return before - kept.length;
   }
 
-  async export(options: { mutation?: string } = {}): Promise<Receipt[]> {
-    return this.list({ mutation: options.mutation });
+  async export(options: ReceiptListOptions = {}): Promise<Receipt[]> {
+    return this.list(options);
   }
 }
 
@@ -115,6 +111,9 @@ function hydrateReceipt(snapshot: ReceiptSnapshot): Receipt {
     rollout: snapshot.rollout,
     shadow: snapshot.shadow,
     approval: snapshot.approval,
+    actor: snapshot.actor,
+    tenant: snapshot.tenant,
+    environment: snapshot.environment,
     schemaVersion: snapshot.schemaVersion
   });
 }

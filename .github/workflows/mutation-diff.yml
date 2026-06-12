@@ -1,0 +1,36 @@
+name: Mutation Diff
+
+on:
+  pull_request:
+    paths:
+      - "**/*.ts"
+      - "**/stalezero.config.json"
+      - ".stalezero/**"
+      - "packages/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  mutation-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Generate manifests
+        run: node scripts/generate-ci-manifest.mjs
+      - name: Comment mutation diff
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_MANIFEST_BEFORE: .stalezero/manifest.json
+          INPUT_MANIFEST_AFTER: .stalezero/ci/manifest-after.json
+        run: node packages/github-action/dist/run.js
+        continue-on-error: true

@@ -36,6 +36,7 @@
     "packages/devtools",
     "packages/otel",
     "packages/create-stalezero-adapter-template",
+    "packages/create-stalezero-app-template",
     "packages/snapshot",
     "packages/github-action",
     "packages/recipes",
@@ -56,7 +57,7 @@
     "verify:consumer": "node ./scripts/consumer-smoke.mjs",
     "verify:cli": "node ./scripts/cli-smoke.mjs",
     "verify:examples": "node ./scripts/run-examples.mjs",
-    "verify:template": "node ./scripts/template-smoke.mjs",
+    "verify:template": "node ./scripts/template-smoke.mjs && node ./scripts/app-template-smoke.mjs",
     "verify:adapters": "node ./scripts/adapter-conformance.mjs",
     "verify:api": "node ./scripts/api-report.mjs && node ./scripts/api-snapshot-check.mjs",
     "verify:graph": "node ./scripts/package-graph.mjs",
@@ -75,12 +76,17 @@
     "example:search": "node ./scripts/run-examples.mjs --only=search-reindex",
     "example:http-bus": "node ./scripts/run-examples.mjs --only=http-webhook-bus",
     "example:dogfood": "npm run build && node ./examples/dogfood-app/run.mjs",
-    "verify:rc": "npm run metadata:prepare && npm install && npm run clean && npm run build && npm run check && npm run verify:api && npm run verify:graph && npm run verify:adapters && npm run verify:pack && npm run verify:consumer && npm run verify:cli && npm run verify:examples && npm run verify:template && npm run benchmark && npm run verify:security && npm run verify:licenses && npm run release:dry-run"
+    "verify:rc": "npm run metadata:prepare && npm install && npm run clean && npm run build && npm run check && npm run verify:api && npm run verify:graph && npm run verify:adapters && npm run verify:pack && npm run verify:consumer && npm run verify:cli && npm run verify:examples && npm run verify:template && npm run benchmark && npm run verify:security && npm run verify:licenses && npm run release:dry-run",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
+    "fast-check": "^4.3.0",
+    "vitepress": "^1.6.3",
     "vitest": "^4.0.14"
   }
 }

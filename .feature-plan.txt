@@ -1,0 +1,1847 @@
+# StaleZero World-Class Developer Feature Plan
+Generated for: KirtiRamchandani/StaleZero
+Purpose: Give Cursor a complete, start-to-finish implementation brief for turning StaleZero into a highly useful, trusted, production-grade, widely adopted developer tool.
+
+================================================================================
+0. NORTH STAR
+================================================================================
+
+StaleZero should become the standard TypeScript mutation-consequence engine:
+when data changes, every cache, state store, view, queue, search index, websocket client,
+analytics event, edge cache, and downstream system receives the correct invalidation or sync
+action with proof, observability, safety, and developer confidence.
+
+The project should feel like:
+- "React Query Devtools + OpenTelemetry + cache invalidation graph + receipts + workflows"
+- "Terraform plan/apply, but for application state and cache consequences"
+- "Stripe-grade DX for mutation side effects"
+- "A production safety layer around stale data"
+
+Core promise:
+Developers declare the mutation once, preview the blast radius, execute it safely,
+prove the result, and get an audit receipt.
+
+================================================================================
+1. PRODUCT POSITIONING
+================================================================================
+
+1.1 One-line positioning
+StaleZero is a TypeScript engine for declaring, previewing, executing, proving, and observing every cache/state/index/client consequence of a data mutation.
+
+1.2 Target users
+- Full-stack TypeScript teams
+- SaaS teams with Redis, Next.js, React Query, SWR, Redux, Zustand, search, queues, and websockets
+- Teams suffering stale UI, stale cache, missed revalidations, broken invalidation rules, and invisible mutation side effects
+- Platform teams that want consistency, auditability, and governance across services
+
+1.3 Primary use cases
+- Invalidate Redis keys after DB mutations
+- Revalidate Next.js tags/paths
+- Invalidate React Query/SWR/tRPC/Apollo client state
+- Notify websocket rooms
+- Enqueue search reindex jobs
+- Emit outbox/events for downstream services
+- Preview what will be affected before execution
+- Store receipts for debugging and compliance
+- Prove that important targets were actually updated
+- Build devtools around mutation graphs
+- Detect stale-data drift
+
+1.4 Make it famous by being:
+- Dead simple in the first 5 minutes
+- Deeply trustworthy in production
+- Visually impressive with graph/devtools
+- Compatible with every popular TypeScript stack
+- Safe by default
+- Extremely well tested
+- Fun to demo
+
+================================================================================
+2. TOP-LEVEL ROADMAP
+================================================================================
+
+Phase 1: Stabilize the core
+- Split giant engine into maintainable modules
+- Define strict public API
+- Add exhaustive tests
+- Make security safe by default
+- Make unknown mutation behavior explicit
+- Improve adapter contracts
+
+Phase 2: Developer experience
+- Great CLI
+- Great docs
+- Great examples
+- Great type inference
+- Great devtools
+- Great error messages
+
+Phase 3: Production readiness
+- Durable receipt stores
+- Distributed buses
+- OpenTelemetry
+- SLOs
+- drift detection
+- governance
+- policy
+- CI integration
+
+Phase 4: Ecosystem and growth
+- Recipes
+- Framework guides
+- Benchmarks
+- Launch demos
+- Templates
+- Plugin SDK
+- Community adapters
+- Public registry
+
+================================================================================
+3. CORE API FEATURES
+================================================================================
+
+3.1 createStaleZero()
+Subfeatures:
+- createStaleZero(config)
+- createStaleZero.production(config)
+- createStaleZero.dev(config)
+- createStaleZero.test(config)
+- Environment-specific defaults
+- Helpful warnings for unsafe defaults
+- Optional strict mode
+
+Required changes:
+- Add mode presets:
+  - "development"
+  - "test"
+  - "production"
+- Production defaults should be safe:
+  - no in-memory receipt store without warning or explicit allow
+  - security.blockUnsafeTargets true
+  - unknown mutations rejected unless explicitly allowed
+  - devtools disabled unless auth configured
+- Add config validation with clear error messages.
+
+Acceptance criteria:
+- A new developer can create an instance with one line.
+- Production config cannot silently expose dangerous behavior.
+
+3.2 Mutation declarations
+Current concept:
+stale.mutation("UserUpdated", { schema, affects, targets, fields, routes, owner })
+
+Desired subfeatures:
+- Strong type inference from schemas
+- Support Zod, Valibot, ArkType, Effect Schema, TypeBox, Standard Schema
+- Required/optional mutation owners
+- Tags and metadata
+- Mutation descriptions
+- Examples in generated docs
+- Deprecation flags
+- Versioning
+- Risk classification
+- Required approval policy
+- Tenant policy
+- Idempotency policy
+- Replay policy
+- Changelog for mutation graph changes
+
+Suggested API:
+stale.mutation("UserUpdated", {
+  description: "Runs after a user profile update",
+  owner: "platform",
+  schema: UserUpdatedSchema,
+  affects: input => [entity("User", input.userId)],
+  targets: input => [
+    redisTarget(`user:${input.userId}`),
+    queryTarget(["user", input.userId]),
+  ],
+  policy: {
+    strict: true,
+    requireActor: true,
+    idempotent: true,
+    maxTargets: 20,
+  }
+})
+
+Acceptance criteria:
+- Undeclared mutation behavior is configurable:
+  - default production: reject
+  - development: warn
+  - explicit allow: allowUndeclaredMutations true
+- Mutation registration should validate duplicate names.
+
+3.3 Targets
+Current concept:
+TargetRef with adapter, key, action, meta, priority, required, timeout, retries.
+
+Desired subfeatures:
+- Every target has:
+  - adapter
+  - action
+  - key
+  - human label
+  - owner
+  - priority
+  - required/optional
+  - idempotent flag
+  - risk
+  - timeout
+  - retry
+  - batch group
+  - tenant
+  - cost estimate
+  - proof requirement
+  - metadata
+- Target helper consistency
+- Type-safe target metadata per adapter
+- Target validation before execution
+- Target previews with confidence score
+- Target dependencies
+
+Acceptance criteria:
+- All target helpers return strongly typed target refs.
+- Invalid action/adapter combinations fail before runtime when possible.
+- Runtime validates unknown target actions before execution.
+
+3.4 Mirrors / views
+Current concept:
+mirror("RedisUser", { when, target })
+
+Desired subfeatures:
+- mirror.when can be mutation name, regex, tag, owner, entity type
+- mirror dependsOn support should be used in why-mode and graph
+- mirror priority and required/optional
+- mirror templates
+- mirror groups
+- mirror test helpers
+- mirror docs generation
+
+Acceptance criteria:
+- A mirror can be previewed independently.
+- Why-mode can explain why a mirror exists and what mutation triggers it.
+
+3.5 Quick mutation builder
+Current concept:
+stale.mutate("UserUpdated", input).redis(...).query(...).run()
+
+Desired subfeatures:
+- Type-safe builder helpers for all adapters
+- .affects()
+- .target()
+- .preview()
+- .dryRun()
+- .strict()
+- .withActor()
+- .withTenant()
+- .withTrace()
+- .prove()
+- .approval()
+- .idempotencyKey()
+- .run()
+- .runStrict()
+- .enqueue()
+- .schedule()
+- .workflow()
+
+Acceptance criteria:
+- Quick builder should work for prototypes.
+- Production mode should warn/reject undeclared quick mutations unless enabled.
+
+3.6 Commands
+Current concept:
+command() runs business logic then records changed consequence.
+
+Desired subfeatures:
+- Command input/output schemas
+- Command transactions
+- Command side effect isolation
+- Command retries
+- Command idempotency
+- Command receipts
+- Command hooks
+- Command trace span
+- Command failure rollback hooks
+- Command result mapping to affected entities
+
+Acceptance criteria:
+- Command examples for createUser, updateProduct, checkoutCompleted.
+- Command receipts include output summary safely redacted.
+
+================================================================================
+4. ENGINE EXECUTION FEATURES
+================================================================================
+
+4.1 Execution pipeline
+Current pipeline:
+parse -> affected -> context -> targets -> risk -> guard -> execute -> publish -> prove -> receipt -> audit -> notify.
+
+Desired changes:
+- Make this pipeline explicit and modular.
+- Add lifecycle hooks:
+  - beforeParse
+  - afterParse
+  - beforePreview
+  - afterPreview
+  - beforeGuard
+  - afterGuard
+  - beforeExecute
+  - afterTarget
+  - afterExecute
+  - beforeReceipt
+  - afterReceipt
+  - onFailure
+- Add pipeline tracing.
+- Add cancellation via AbortSignal.
+- Add deterministic execution IDs.
+- Add execution plans.
+
+Acceptance criteria:
+- Each stage is independently tested.
+- Each stage can be traced and debugged.
+
+4.2 Timeouts and cancellation
+Current timeout uses Promise.race but cannot force-cancel an adapter unless the adapter cooperates.
+
+Desired subfeatures:
+- Pass AbortSignal in MutationContext.
+- Adapter contract should support context.signal.
+- withTimeout should abort the signal.
+- HTTP adapter should use signal.
+- Redis/search/queue adapters should respect signal when possible.
+- Receipt should mark timeout separately from generic failure.
+
+Acceptance criteria:
+- Timed-out HTTP target actually aborts fetch.
+- Receipt records status: failed, error.name: TimeoutError.
+
+4.3 Retry behavior
+Subfeatures:
+- Per-target retry config
+- Per-adapter retry config
+- Global retry config
+- Retry backoff
+- Retry jitter
+- Retry only on retryable errors
+- Retry budgets
+- Retry hooks
+- Retry reasons in receipts
+- Test deterministic retry timing
+
+Acceptance criteria:
+- Retried target receipt shows attempts, delays, and final reason.
+
+4.4 Circuit breaker
+Subfeatures:
+- Per-adapter circuit breaker
+- Per-target group circuit breaker
+- Half-open state
+- Reset on success
+- Manual reset API
+- Circuit state in health
+- Circuit events in audit log
+
+Acceptance criteria:
+- Circuit opens after configured threshold.
+- Circuit half-opens after cooldown and closes on success.
+
+4.5 Concurrency
+Subfeatures:
+- Global concurrency
+- Adapter concurrency
+- Lane-based concurrency
+- Priority queues
+- Required targets first
+- Optional targets later
+- Background execution for optional targets, if configured
+- Deterministic ordering in receipts
+
+Acceptance criteria:
+- Required target failures are always visible.
+- Optional target failures can be non-blocking but still recorded.
+
+4.6 Batching
+Current batchExecute returns void, which cannot represent partial success.
+
+Required change:
+- Update Adapter.batchExecute to optionally return per-target results.
+
+Suggested contract:
+batchExecute?: (
+  targets: Target[],
+  context: MutationContext
+) => MaybePromise<void | Array<{
+  target: Target
+  status: "success" | "failed" | "skipped"
+  error?: unknown
+  message?: string
+}>>
+
+Subfeatures:
+- Batch fallback to single execution
+- Batch result normalization
+- Partial batch failures
+- Batch size limits
+- Batch grouping by adapter/action/lane/priority
+- Batch metrics
+
+Acceptance criteria:
+- A batch with 10 targets can show 8 success and 2 failed.
+
+4.7 Idempotency
+Subfeatures:
+- Idempotency key generation
+- Idempotency key validation
+- Idempotency store interface
+- Replay-safe targets
+- Duplicate event detection
+- Dedupe windows
+- Idempotent adapter helpers
+- Idempotency conflict detection
+
+Acceptance criteria:
+- Same idempotency key does not execute targets twice unless explicitly forced.
+
+4.8 Dry-run and preview
+Subfeatures:
+- Dry-run receipt
+- Preview receipt
+- Preview confidence
+- Estimated versus exact targets
+- Comparison between preview and actual execution
+- Explain why target is included
+- Render preview as text, JSON, Mermaid, DOT, SVG
+- CLI preview command
+
+Acceptance criteria:
+- A developer can see exactly what will happen before running.
+
+================================================================================
+5. SAFETY AND SECURITY FEATURES
+================================================================================
+
+5.1 Safe by default
+Required changes:
+- Production mode should default to:
+  - security.blockUnsafeTargets true
+  - require HTTPS for HTTP targets
+  - block private IPs and localhost
+  - block Redis wildcard deletes
+  - block pattern deletes unless allowlisted
+  - reject unknown mutations
+  - warn if no durable receipt store
+  - devtools disabled
+  - no unsafe CORS
+
+Acceptance criteria:
+- Unsafe HTTP and Redis targets are blocked without needing advanced config.
+
+5.2 HTTP adapter security
+Current risk:
+HTTP adapter directly fetches target.key. Engine has checks, but adapter does not enforce them itself.
+
+Required changes:
+- Move baseline SSRF checks into HTTP adapter:
+  - requireHttps default true
+  - block localhost default true
+  - block private IP literals default true
+  - block metadata IP 169.254.169.254
+  - allowHosts support
+  - denyHosts support
+  - allowedMethods
+  - maxBodyBytes
+  - maxResponseBytes
+  - no redirect to private hosts
+  - DNS rebinding mitigation if possible
+- Add signed webhook helpers:
+  - HMAC sha256
+  - timestamp header
+  - replay window
+  - verify function for receivers
+
+Acceptance criteria:
+- HTTP adapter is safe even if engine security config is forgotten.
+
+5.3 Redis safety
+Subfeatures:
+- Pattern delete allowlists
+- Prefix allowlists
+- Max keys per pattern
+- Dry-run scan before delete
+- Chunked deletes
+- UNLINK default option
+- Audit record of deleted key count, not raw keys if sensitive
+- Protect production broad deletes
+- Require approval for broad deletes
+
+Acceptance criteria:
+- `redisPatternTarget("*")` is impossible in production without explicit unsafe override.
+
+5.4 Devtools security
+Required changes:
+- If enabledInProduction is true, require auth function unless explicitly allowUnauthenticatedInProduction is true.
+- Strong CORS defaults.
+- Redaction always applied before UI.
+- Hide receipt payload by default in production.
+- Add "safe share" mode that strips payloads and target secrets.
+- Add CSP headers.
+- Add no-store cache headers.
+- Add rate limiting for preview endpoint.
+
+Acceptance criteria:
+- Production devtools cannot be accidentally exposed with full receipts.
+
+5.5 Redaction
+Subfeatures:
+- Redact by key name
+- Redact by path
+- Redact by regex
+- Redact by schema metadata
+- Redact by value detector:
+  - email
+  - token
+  - JWT
+  - API key
+  - credit card
+  - phone
+- Redaction preview
+- Redaction tests
+- Redacted marker metadata
+- Custom redaction function
+- Irreversible redaction for receipts
+
+Acceptance criteria:
+- Sensitive values never appear in stored receipts, devtools, logs, or notifications.
+
+5.6 Multi-tenant safety
+Subfeatures:
+- Tenant resolver for actor
+- Tenant resolver for input
+- Tenant resolver for targets
+- Cross-tenant block by default
+- Tenant allowlists
+- Tenant-scoped receipts
+- Tenant-scoped devtools view
+- Tenant proof
+- Tenant-aware rate limits
+
+Acceptance criteria:
+- A mutation from tenant A cannot target tenant B unless explicitly allowed.
+
+5.7 Approval gates
+Subfeatures:
+- Require approval by mutation
+- Require approval by risk
+- Require approval by target count
+- Require approval by adapter
+- Require approval by tenant
+- Approval token verification
+- Approval metadata in receipt
+- Slack/GitHub approval integration
+- CLI approval flow
+- Expiring approvals
+
+Acceptance criteria:
+- High-risk mutations cannot execute without valid approval.
+
+================================================================================
+6. RECEIPTS AND AUDIT
+================================================================================
+
+6.1 Receipt model
+Subfeatures:
+- Stable receipt schema versioning
+- Receipt ID
+- Trace ID
+- Mutation name
+- Input redacted
+- Affected entities
+- Targets
+- Results
+- Status
+- Duration
+- Timestamp
+- Actor
+- Tenant
+- App
+- Environment
+- Owner
+- Risk
+- Cost
+- Proofs
+- SLO
+- Freshness
+- Approval
+- Rollout/shadow info
+- Errors
+- Audit events
+- Hash/signature
+
+Acceptance criteria:
+- Receipt JSON is stable and versioned.
+
+6.2 Durable receipt stores
+Implement:
+- Memory store
+- File store
+- SQLite store
+- Postgres store
+- Redis store
+- DynamoDB store
+- S3/object store
+- OpenSearch/Elasticsearch store
+- Custom store interface
+
+Subfeatures:
+- Retention policy
+- Max entries
+- Query by mutation
+- Query by actor
+- Query by tenant
+- Query by target
+- Query by status
+- Export JSONL
+- Import receipts
+- Receipt compression
+- Receipt encryption at rest via custom hook
+
+Acceptance criteria:
+- Production docs recommend durable receipt store.
+
+6.3 Receipt integrity
+Subfeatures:
+- Receipt hash
+- Receipt chain hash
+- Optional HMAC signing
+- Tamper detection
+- Audit export
+- Compliance mode
+- Redaction proof
+
+Acceptance criteria:
+- Users can verify receipts were not modified.
+
+6.4 Human-readable receipts
+Subfeatures:
+- receipt.toText()
+- receipt.toMarkdown()
+- receipt.toSlack()
+- receipt.toGitHubComment()
+- receipt.toMermaid()
+- receipt.toHtml()
+- receipt.toJson()
+- Receipt permalink in devtools
+
+Acceptance criteria:
+- A failed receipt is understandable by a developer in under 30 seconds.
+
+================================================================================
+7. PROOF, DRIFT, AND CONSISTENCY
+================================================================================
+
+7.1 Proof engine
+Current concept:
+Adapter verify can confirm target state.
+
+Desired subfeatures:
+- Required proofs
+- Optional proofs
+- Proof timeout
+- Proof retries
+- Proof evidence
+- Proof confidence
+- Proof failure classification
+- Proof-only mode
+- Proof after delay
+- Async proof jobs
+- Proof report
+
+Acceptance criteria:
+- Critical targets can require proof before receipt is success.
+
+7.2 Drift detection
+Subfeatures:
+- Drift probes by adapter
+- Drift scan by entity
+- Drift scan by mutation
+- Drift scan by target
+- Scheduled drift checks
+- Drift severity
+- Drift suggested fix
+- Drift receipt
+- Drift dashboard
+- CLI drift command
+
+Acceptance criteria:
+- User can ask, "why is user:123 stale?" and get an actionable answer.
+
+7.3 Explain stale
+Subfeatures:
+- Last receipt for entity
+- Expected targets
+- Missing targets
+- Failed targets
+- Targets without proof
+- Stale budget violations
+- Likely cause
+- Suggested fix
+- Link to receipts
+- Link to graph
+
+Acceptance criteria:
+- explainStale("User:123") gives useful debugging output.
+
+7.4 Freshness budgets
+Subfeatures:
+- Max stale ms per mutation
+- Max stale ms per entity
+- Max stale ms per target
+- Freshness status in receipt
+- Freshness SLO dashboard
+- Freshness alerting
+
+Acceptance criteria:
+- Teams can define and monitor stale-data budgets.
+
+================================================================================
+8. ADAPTER ECOSYSTEM
+================================================================================
+
+8.1 Adapter SDK
+Subfeatures:
+- defineAdapter()
+- createAdapterTestSuite()
+- createConformanceTests()
+- adapter metadata
+- supported actions
+- target schema
+- proof support
+- batch support
+- health support
+- docs generator
+- example generator
+
+Acceptance criteria:
+- Community can build adapters with confidence.
+
+8.2 Official adapters to implement or harden
+Cache:
+- Redis
+- Memcached
+- Upstash Redis
+- Cloudflare KV
+- Vercel KV
+- DynamoDB cache
+- Browser cache
+- CDN cache
+
+Frontend/server state:
+- React Query / TanStack Query
+- SWR
+- Apollo
+- Relay
+- urql
+- tRPC
+- RTK Query
+- Redux
+- Zustand
+- Jotai
+- Recoil
+- Pinia
+- Vue Query
+- Svelte Query
+
+Frameworks:
+- Next.js App Router tags
+- Next.js paths
+- Remix
+- Astro
+- Nuxt
+- SvelteKit
+- Express
+- Fastify
+- Hono
+- NestJS
+
+Search:
+- Elasticsearch
+- OpenSearch
+- Meilisearch
+- Algolia
+- Typesense
+- Solr
+- Pinecone/vector index
+- Weaviate/vector index
+
+Queues/events:
+- BullMQ
+- Celery-compatible HTTP
+- SQS
+- SNS
+- EventBridge
+- Kafka
+- NATS
+- RabbitMQ
+- Google Pub/Sub
+- Azure Service Bus
+- Redis Streams
+- Postgres LISTEN/NOTIFY
+- Webhooks
+- Outbox pattern
+
+Realtime:
+- Socket.IO
+- ws
+- Pusher
+- Ably
+- Supabase Realtime
+- Firebase
+- BroadcastChannel
+- Server-Sent Events
+
+Databases/ORM:
+- Prisma
+- Drizzle
+- TypeORM
+- Sequelize
+- Kysely
+- Postgres triggers/outbox
+- MongoDB change streams
+- Supabase
+- PlanetScale
+- Neon
+
+Edge/CDN:
+- Cloudflare Cache API
+- Cloudflare purge
+- Fastly
+- CloudFront
+- Vercel
+- Netlify
+- Akamai
+
+Observability:
+- OpenTelemetry
+- Datadog
+- Sentry
+- Honeycomb
+- Grafana Loki
+- Prometheus metrics
+
+Notifications:
+- Slack
+- Discord
+- Teams
+- Email
+- PagerDuty
+- Opsgenie
+
+Acceptance criteria:
+- Each official adapter has:
+  - README
+  - typed target helpers
+  - examples
+  - conformance tests
+  - security notes
+  - health checks
+  - proof support when possible
+
+8.3 Adapter quality levels
+Define badges:
+- Experimental
+- Beta
+- Stable
+- Production
+- Verified
+
+Requirements:
+Experimental:
+- compiles
+- basic tests
+
+Beta:
+- conformance tests
+- examples
+
+Stable:
+- integration tests
+- docs
+- error handling
+- security review
+
+Production:
+- load tests
+- real service tests
+- proof support
+- health support
+- semver guarantees
+
+Verified:
+- maintained by core team
+- CI runs against real service or emulator
+
+================================================================================
+9. EVENT BUS AND DISTRIBUTED FEATURES
+================================================================================
+
+9.1 Event bus contract
+Subfeatures:
+- publish
+- subscribe
+- unsubscribe
+- ack/nack where supported
+- dead letter queue
+- retry
+- dedupe
+- max hops
+- source app
+- environment
+- trace ID
+- tenant
+- event schema
+
+Acceptance criteria:
+- Distributed invalidation avoids infinite loops.
+
+9.2 Official buses
+- Memory bus
+- Redis pub/sub
+- Redis Streams
+- Postgres LISTEN/NOTIFY
+- Kafka
+- NATS
+- RabbitMQ
+- SQS/SNS
+- EventBridge
+- HTTP webhook bus
+- Cloudflare Queues
+- Google Pub/Sub
+
+9.3 Outbox pattern
+Subfeatures:
+- Durable outbox store
+- Transactional outbox helper
+- Polling publisher
+- Exactly-once-ish semantics
+- Dead letter handling
+- Replay outbox
+- Devtools outbox tab
+
+Acceptance criteria:
+- Teams can safely publish mutation consequences across services.
+
+9.4 Event schemas
+Subfeatures:
+- schema registry
+- producer/consumer contracts
+- breaking-change detection
+- compatibility checks
+- event docs
+- event examples
+
+Acceptance criteria:
+- contractCheck identifies incompatible producers/consumers.
+
+================================================================================
+10. DEVTOOLS
+================================================================================
+
+10.1 Core devtools dashboard
+Subfeatures:
+- Graph view
+- Timeline
+- Receipts
+- Failures
+- Slow targets
+- Mutation detail page
+- Target detail page
+- Entity detail page
+- Adapter health
+- Event bus health
+- Outbox queue
+- Freshness budgets
+- Drift findings
+- SLOs
+- Cost heatmap
+- Search/filter
+- Share-safe snapshots
+- Dark mode
+
+Acceptance criteria:
+- Devtools demo looks impressive in launch video.
+
+10.2 Graph visualization
+Subfeatures:
+- Mutation nodes
+- Entity nodes
+- Target nodes
+- Adapter nodes
+- Owner grouping
+- Tenant grouping
+- Risk color
+- Failure overlays
+- Freshness overlays
+- Edge labels
+- Zoom/pan
+- Search
+- Collapse groups
+- Export SVG/PNG
+- Export Mermaid/DOT
+
+10.3 Preview playground
+Subfeatures:
+- Select mutation
+- Enter JSON input
+- Schema validation
+- Preview targets
+- Risk score
+- Required approvals
+- Dry-run receipt
+- Compare preview to last run
+- Copy code snippet
+- Execute if authorized
+
+10.4 Receipt explorer
+Subfeatures:
+- Filter by mutation/status/target/actor/tenant/time
+- Full result details
+- Redacted payload
+- Proof evidence
+- Trace links
+- Retry attempts
+- Timeline waterfall
+- Copy markdown
+- Create GitHub issue from failure
+
+10.5 Production security
+Subfeatures:
+- Auth required by default
+- CORS locked down
+- Payload hidden by default
+- Read-only mode
+- Rate limits
+- Audit access logs
+- Safe share exports
+
+================================================================================
+11. CLI
+================================================================================
+
+11.1 Commands
+Implement:
+- stalezero init
+- stalezero doctor
+- stalezero preview <mutation> --input '{}'
+- stalezero run <mutation> --input '{}'
+- stalezero dry-run <mutation> --input '{}'
+- stalezero receipts list
+- stalezero receipts show <id>
+- stalezero receipts export
+- stalezero graph
+- stalezero graph export --format mermaid|dot|svg|json
+- stalezero lint
+- stalezero test
+- stalezero prove <receipt>
+- stalezero replay <receipt>
+- stalezero drift scan
+- stalezero explain-stale <entity>
+- stalezero adapter create
+- stalezero recipe add
+- stalezero devtools
+- stalezero release-check
+- stalezero migrate
+
+11.2 CLI developer experience
+Subfeatures:
+- Pretty terminal output
+- JSON output flag
+- CI mode
+- Watch mode
+- Interactive prompts
+- Config file discovery
+- TypeScript config loading
+- Monorepo support
+- GitHub Actions annotations
+- Exit codes
+
+Acceptance criteria:
+- CLI is useful both locally and in CI.
+
+================================================================================
+12. TESTING REQUIREMENTS
+================================================================================
+
+12.1 Unit tests
+Add tests for:
+- Mutation registration
+- Duplicate mutation names
+- Unknown mutation behavior
+- Schema parsing
+- Affected entities
+- Target generation
+- Mirror routing
+- Field-level routes
+- Preview
+- Execution
+- Strict mode
+- Best-effort mode
+- Dry-run
+- Proof-only
+- Redaction
+- Payload size
+- Retry
+- Timeout
+- Circuit breaker
+- Rate limit
+- Coalesce
+- Batch partial success
+- Receipts
+- Receipt pruning
+- Security guard
+- Sandbox targets
+- Tenant guard
+- Approval gate
+- Risk scoring
+- SLO
+- Freshness
+- Rollout
+- Shadow
+- Workflow
+- Undo
+- Devtools handlers
+- CLI commands
+
+12.2 Integration tests
+Add tests for:
+- Redis adapter with Redis emulator/container
+- HTTP adapter with local test server
+- Next adapter with mock revalidateTag/revalidatePath
+- React Query adapter with query client
+- SWR adapter
+- Redux adapter
+- Zustand adapter
+- Websocket adapter
+- Memory bus
+- Redis bus
+- Postgres bus
+- Devtools web handler
+- Receipt stores
+
+12.3 Conformance tests
+Create shared test suite:
+- Adapter executes supported target
+- Rejects unsupported action
+- Honors timeout/cancellation if supported
+- Records verify proof if supported
+- Supports health if declared
+- Supports batch if declared
+- Safe error serialization
+- Does not leak secrets
+
+12.4 Type tests
+Use tsd or expect-type:
+- Schema inference
+- Mutation input inference
+- Command input inference
+- Target helper types
+- Adapter metadata types
+- Public API snapshot
+
+12.5 Property/fuzz tests
+- Redaction never leaks sensitive strings
+- Pattern matching does not break regex
+- Stable hash deterministic behavior
+- Receipt serialization safe for arbitrary input
+- Payload size handles circular input gracefully
+- Target dedupe deterministic
+
+12.6 CI matrix
+Test:
+- Node 20
+- Node 22
+- Node 24
+- TypeScript latest
+- TypeScript minimum supported
+- Linux
+- macOS if possible
+- Windows if possible
+
+Acceptance criteria:
+- No feature is called stable without tests.
+
+================================================================================
+13. DOCUMENTATION
+================================================================================
+
+13.1 Docs site
+Build docs with:
+- VitePress, Nextra, or Docusaurus
+- Search
+- Versioned docs
+- Copyable examples
+- API reference
+- Adapter pages
+- Security guide
+- Production checklist
+
+13.2 Required docs pages
+- Introduction
+- Why StaleZero exists
+- Quick start
+- Core concepts
+- Mutations
+- Entities
+- Targets
+- Mirrors
+- Receipts
+- Preview and dry-run
+- Proofs
+- Drift detection
+- Devtools
+- CLI
+- Security
+- Production deployment
+- Recipes
+- Adapter development
+- Testing guide
+- Migration guide
+- Troubleshooting
+- FAQ
+- Comparison pages:
+  - StaleZero vs manual invalidation
+  - StaleZero vs React Query invalidation only
+  - StaleZero vs event bus only
+  - StaleZero vs workflow engine
+  - StaleZero vs observability tools
+
+13.3 Examples
+Must include:
+- Minimal Node
+- Next.js App Router + Redis + React Query
+- SaaS multi-tenant user update
+- E-commerce product update
+- Auth session revocation
+- Search reindex
+- Websocket notification
+- Outbox/event-driven services
+- Devtools demo
+- Drift debugging demo
+- CLI in CI
+- Production security config
+
+13.4 README improvements
+README should show:
+- 30-second problem
+- 2-minute quick start
+- Visual graph image/gif
+- Before/after example
+- Feature matrix
+- Production safety statement
+- Installation options
+- Links to docs/examples
+- Honest maturity status
+
+================================================================================
+14. REFACTOR PLAN
+================================================================================
+
+14.1 Split core engine
+Current issue:
+engine.ts is too large and contains too many responsibilities.
+
+Suggested structure:
+packages/core/src/
+  index.ts
+  create.ts
+  engine/
+    StaleZeroEngine.ts
+    execution.ts
+    preview.ts
+    targets.ts
+    guards.ts
+    receipts.ts
+    proof.ts
+    replay.ts
+    drift.ts
+    lint.ts
+    contracts.ts
+    workflows.ts
+    undo.ts
+    devtools.ts
+    health.ts
+    lifecycle.ts
+  types/
+    adapter.ts
+    mutation.ts
+    target.ts
+    receipt.ts
+    config.ts
+    security.ts
+    proof.ts
+    workflow.ts
+  utils/
+    redaction.ts
+    timeout.ts
+    hashing.ts
+    errors.ts
+    concurrency.ts
+    pattern.ts
+    json.ts
+  testing/
+    adapterConformance.ts
+    engineHarness.ts
+
+Acceptance criteria:
+- No file larger than 500-800 lines unless justified.
+- Public imports remain stable.
+
+14.2 Error system
+Implement custom errors:
+- StaleZeroError
+- ValidationError
+- UnknownMutationError
+- TargetValidationError
+- AdapterExecutionError
+- TimeoutError
+- SecurityBlockedError
+- ApprovalRequiredError
+- TenantBoundaryError
+- PayloadTooLargeError
+- ReceiptStoreError
+- ProofError
+- ConfigurationError
+
+Each error should have:
+- code
+- message
+- details
+- cause
+- docs URL
+- safe serialization
+
+Acceptance criteria:
+- Developers get actionable errors, not generic Error.
+
+14.3 Public API boundaries
+Subfeatures:
+- Explicit exports only
+- API extractor/report
+- Semver policy
+- Deprecated APIs with warnings
+- Internal modules under /internal
+- Public type tests
+
+Acceptance criteria:
+- Accidental breaking changes are caught in CI.
+
+================================================================================
+15. DEVELOPER EXPERIENCE
+================================================================================
+
+15.1 Installation
+Options:
+- npm install stalezero
+- npm install @stalezero/core @stalezero/redis @stalezero/react-query
+- npm create stalezero
+- pnpm create stalezero
+- yarn create stalezero
+
+15.2 create-stalezero app/template
+Subfeatures:
+- Choose framework
+- Choose adapters
+- Generate config
+- Generate example mutation
+- Generate tests
+- Generate devtools route
+- Generate GitHub Action
+- Generate README snippet
+
+15.3 TypeScript experience
+Subfeatures:
+- Excellent autocomplete
+- No unnecessary generics for simple use
+- Strong schema inference
+- Better error types
+- JSDoc on public APIs
+- Type-level tests
+
+15.4 Debugging
+Subfeatures:
+- Debug logs
+- Trace logs
+- Pretty receipt output
+- Explain target inclusion
+- Explain target exclusion
+- Why-mode
+- Doctor command
+- Common misconfiguration detection
+
+15.5 IDE/Cursor support
+Add files:
+- CURSOR_RULES.md
+- .cursorrules
+- AGENTS.md
+- CONTRIBUTING.md
+- IMPLEMENTATION_PLAN.md
+- docs/architecture.md
+
+Cursor-specific instructions:
+- Never add new adapter without tests
+- Never expose devtools in production without auth
+- Keep public API documented
+- Add changeset for package changes
+- Run typecheck/test before marking done
+
+================================================================================
+16. OBSERVABILITY
+================================================================================
+
+16.1 OpenTelemetry
+Subfeatures:
+- Trace per mutation
+- Span per target
+- Span attributes:
+  - mutation
+  - adapter
+  - target action
+  - target key hash
+  - receipt ID
+  - tenant
+  - status
+- Metrics:
+  - mutation count
+  - target count
+  - failure count
+  - duration histogram
+  - proof status
+  - drift count
+  - freshness violations
+- Logs:
+  - structured events
+  - redacted payloads
+
+16.2 Metrics exporters
+- Prometheus
+- OpenTelemetry metrics
+- StatsD
+- Datadog
+- Custom metrics hook
+
+16.3 Sentry integration
+Subfeatures:
+- Capture failed receipts
+- Add receipt ID as tag
+- Add mutation name as tag
+- Add target adapter as tag
+- Redact payload
+- Link to devtools
+
+Acceptance criteria:
+- Production issues can be traced from error to receipt to target.
+
+================================================================================
+17. GOVERNANCE AND TEAM FEATURES
+================================================================================
+
+17.1 Ownership
+Subfeatures:
+- Owner per mutation
+- Owner per mirror
+- Owner per target
+- CODEOWNERS generation
+- Ownership map
+- Missing owner lint
+- Team dashboard
+
+17.2 Policy
+Subfeatures:
+- Require owner for production
+- Require schema for production
+- Require proof for critical targets
+- Require approval for high-risk changes
+- Disallow unsafe adapters
+- Disallow broad patterns
+- Enforce max blast radius
+- Enforce tenant boundary
+
+17.3 CI integration
+Subfeatures:
+- GitHub Action
+- PR comments with graph diff
+- API snapshot check
+- Manifest diff check
+- Risk increase warning
+- Owner review request
+- Adapter conformance in CI
+
+Acceptance criteria:
+- PRs changing mutation consequences are visible and reviewable.
+
+================================================================================
+18. WORKFLOWS, UNDO, AND REPLAY
+================================================================================
+
+18.1 Replay
+Subfeatures:
+- Replay by receipt ID
+- Replay failed targets only
+- Replay required targets only
+- Replay safe targets only
+- Replay one adapter
+- Replay one target
+- Replay with current graph
+- Replay in sandbox
+- Replay with approval
+- Replay receipt links to original
+
+18.2 Undo
+Subfeatures:
+- Register undo handler
+- Preview undo
+- Approval for undo
+- Undo receipt
+- Undo proof
+- Undo policy
+- Undo idempotency
+- Undo history
+
+18.3 Workflows
+Subfeatures:
+- Multi-step mutation workflows
+- Step receipts
+- Optional steps
+- Parallel groups
+- Compensation
+- Retry
+- Timeout
+- Pause/resume
+- Human approval step
+- Workflow graph in devtools
+
+Acceptance criteria:
+- Workflows are useful but do not turn core into a huge workflow engine; keep scope focused on mutation consequences.
+
+================================================================================
+19. RECIPES AND PACKS
+================================================================================
+
+19.1 Official recipes
+- SaaS entity update
+- Multi-tenant SaaS
+- Commerce product update
+- Cart/checkout
+- Auth session revoke
+- Role/permission update
+- Search-backed entity
+- Webhook receiver
+- Serverless app
+- Next.js app router
+- Redis cache invalidation
+- React Query sync
+- Websocket notify
+- Outbox event
+
+19.2 Recipe features
+- Installable recipe
+- Preview recipe
+- Uninstall recipe
+- Recipe docs
+- Recipe tests
+- Recipe generated code
+- Recipe customization options
+
+19.3 Packs
+- pack-saas
+- pack-commerce
+- pack-auth
+- pack-next
+- pack-observability
+- pack-enterprise
+- pack-edge
+
+Acceptance criteria:
+- A new user can add a useful production pattern in minutes.
+
+================================================================================
+20. PERFORMANCE
+================================================================================
+
+20.1 Performance goals
+- Minimal overhead for no-target mutation
+- Fast preview
+- Fast target dedupe
+- Efficient receipts
+- Memory-safe for large target sets
+- Batching for large invalidations
+- Streaming export for receipts
+
+20.2 Benchmarks
+Add benchmarks:
+- 1 target
+- 10 targets
+- 100 targets
+- 1,000 targets
+- preview only
+- receipt serialization
+- redaction
+- target dedupe
+- batch execution
+- graph generation
+
+20.3 Optimization ideas
+- Avoid repeated array copying in hot paths
+- Use maps/sets efficiently
+- Stable hashing for nested objects
+- Lazy toText generation
+- Optional receipt compression
+- Avoid storing huge payloads
+
+Acceptance criteria:
+- Benchmarks published in docs.
+
+================================================================================
+21. PACKAGE AND RELEASE ENGINEERING
+================================================================================
+
+21.1 Package structure
+Subfeatures:
+- Workspaces
+- Changesets
+- Provenance
+- npm publishing
+- ESM support
+- CJS support if needed
+- Types
+- Source maps
+- Export maps
+- Side effects flags
+- Minimal dependencies
+- Dependency audit
+
+21.2 Versioning
+Subfeatures:
+- Semver
+- Release notes
+- Changelog
+- Deprecation policy
+- Migration guides
+- API report
+
+21.3 CI/CD
+Jobs:
+- install
+- lint
+- format
+- typecheck
+- unit tests
+- integration tests
+- type tests
+- adapter conformance
+- examples
+- docs build
+- package build
+- package smoke test
+- security scan
+- license check
+- benchmark
+- release dry-run
+
+Acceptance criteria:
+- A release cannot go out if examples or package smoke tests fail.
+
+================================================================================
+22. COMMUNITY AND GROWTH
+================================================================================
+
+22.1 Make it demo-friendly
+Build demos:
+- Interactive graph demo
+- Before/after stale cache bug
+- Next.js + Redis + React Query demo
+- Debugging stale user profile in devtools
+- PR graph diff demo
+- Drift detection demo
+
+22.2 Marketing assets
+- Logo
+- Screenshots
+- GIFs
+- Architecture diagram
+- Landing page
+- Comparison table
+- "Why stale data happens" article
+- "Stop manually invalidating caches" article
+- "Receipts for every mutation" article
+
+22.3 Community
+- CONTRIBUTING.md
+- CODE_OF_CONDUCT.md
+- Good first issues
+- Adapter request issue template
+- Bug report template
+- Security policy
+- Discord/Discussions
+- Roadmap
+- Public examples
+
+22.4 Trust
+- Security.md
+- Production checklist
+- Benchmarks
+- Compatibility matrix
+- Maturity badges
+- Honest limitations
+- Real-world case studies
+
+================================================================================
+23. CURSOR IMPLEMENTATION ORDER
+================================================================================
+
+Do not try to implement everything at once. Use this order:
+
+Step 1: Stabilize API and safety
+- Add strict config modes
+- Unknown mutation behavior
+- Error classes
+- HTTP adapter safety
+- Devtools production auth requirement
+- Redis safety improvements
+- More tests
+
+Step 2: Refactor core
+- Split engine.ts
+- Keep public API compatible
+- Add module-level tests
+- Add API snapshot
+
+Step 3: Adapter contract v2
+- Batch partial results
+- AbortSignal context
+- Adapter metadata
+- Adapter conformance suite
+
+Step 4: Receipts and stores
+- Versioned receipt schema
+- Durable stores
+- Better querying
+- Redaction improvements
+
+Step 5: Devtools v2
+- Secure defaults
+- Better graph
+- Receipt explorer
+- Preview playground
+- Drift/SLO tabs
+
+Step 6: CLI v1
+- init
+- doctor
+- preview
+- run
+- receipts
+- graph
+- lint
+- prove
+- replay
+- drift
+
+Step 7: Docs and examples
+- Docs site
+- Quick starts
+- Production guides
+- Adapter docs
+- Real examples
+
+Step 8: CI/release
+- Full CI
+- Changesets
+- npm package smoke tests
+- Security/license scans
+- Benchmarks
+
+Step 9: Ecosystem
+- Recipes
+- Packs
+- More adapters
+- Community adapter SDK
+
+================================================================================
+24. DEFINITION OF DONE FOR "WORLD-CLASS"
+================================================================================
+
+The project is world-class when:
+
+Developer experience:
+- A developer gets value in under 5 minutes.
+- TypeScript autocomplete feels excellent.
+- Errors explain how to fix problems.
+- Docs answer real production questions.
+
+Reliability:
+- Core has high unit coverage.
+- Adapters have conformance tests.
+- Integration tests cover real-world stacks.
+- Security-sensitive behavior is safe by default.
+
+Production readiness:
+- Durable receipt stores exist.
+- Devtools are safe in production.
+- Observability is first-class.
+- CI catches graph/API/security regressions.
+- Receipts are queryable and useful.
+
+Ecosystem:
+- Popular adapters are stable.
+- Recipes solve common app patterns.
+- Framework examples are complete.
+- Community can build adapters easily.
+
+Adoption:
+- README is impressive and honest.
+- Demo is visual and memorable.
+- Docs are polished.
+- Launch story is clear:
+  "Never lose track of stale data again."
+
+================================================================================
+25. IMMEDIATE TODO CHECKLIST FOR CURSOR
+================================================================================
+
+[ ] Add IMPLEMENTATION_PLAN.md from this file into repo
+[ ] Add config modes: development/test/production
+[ ] Add allowUndeclaredMutations config
+[ ] Reject undeclared mutations in production by default
+[ ] Add StaleZeroError base class and typed errors
+[ ] Move HTTP safety checks into HTTP adapter
+[ ] Add redirect/private-host protection for HTTP adapter
+[ ] Require auth for production devtools unless explicitly unsafe override
+[ ] Add AbortSignal to MutationContext
+[ ] Make withTimeout abort cooperative adapters
+[ ] Update Adapter.batchExecute to support partial results
+[ ] Add adapter conformance test suite
+[ ] Expand core tests for all execution modes
+[ ] Add security tests for HTTP/Redis/devtools
+[ ] Split engine.ts into modules
+[ ] Add receipt schema version
+[ ] Add SQLite/Postgres receipt stores
+[ ] Add CLI doctor/preview/receipts/graph/lint
+[ ] Add docs site
+[ ] Add production checklist
+[ ] Add Next.js + Redis + React Query example
+[ ] Add devtools graph improvements
+[ ] Add GitHub Action PR graph diff
+[ ] Add maturity badges for adapters
+[ ] Add changesets release flow
+[ ] Add benchmark report
+[ ] Add SECURITY.md and threat model
+
+================================================================================
+26. FINAL NOTE
+================================================================================
+
+StaleZero should not become famous because it has the most features.
+It should become famous because it makes a painful, common, invisible problem simple:
+"After this mutation, what must change, did it change, and can I prove it?"
+
+Every feature should serve that promise.

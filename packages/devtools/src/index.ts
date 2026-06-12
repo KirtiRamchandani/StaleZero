@@ -239,7 +239,10 @@ export function createReactDevtoolsPanel(react: {
 }
 
 function json(value: unknown, status = 200, headers = new Headers()): Response {
-  return new Response(JSON.stringify(value, null, 2), { status, headers: withContentType(headers, "application/json; charset=utf-8") });
+  return new Response(JSON.stringify(value, null, 2), {
+    status,
+    headers: withSecurityHeaders(withContentType(headers, "application/json; charset=utf-8"))
+  });
 }
 
 export function renderStaticDevtoolsHtml(snapshot: DevtoolsSnapshot): string {
@@ -438,12 +441,21 @@ async function safeReadJson(
 }
 
 function text(body: string, status: number, headers = new Headers()): Response {
-  return new Response(body, { status, headers: withContentType(headers, "text/plain; charset=utf-8") });
+  return new Response(body, { status, headers: withSecurityHeaders(withContentType(headers, "text/plain; charset=utf-8")) });
 }
 
 function withContentType(headers: Headers, contentType: string): Headers {
   const next = new Headers(headers);
   next.set("content-type", contentType);
+  return next;
+}
+
+function withSecurityHeaders(headers: Headers): Headers {
+  const next = new Headers(headers);
+  next.set("cache-control", "no-store");
+  next.set("content-security-policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'none'");
+  next.set("x-content-type-options", "nosniff");
+  next.set("referrer-policy", "no-referrer");
   return next;
 }
 

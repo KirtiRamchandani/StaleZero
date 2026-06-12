@@ -310,14 +310,41 @@ const commands: Command[] = [
   },
   {
     name: "drift",
-    description: "Scan an entity for graph drift",
+    description: "Scan an entity for graph drift using local manifest and receipts",
     run: async (args) => {
       const entityName = args[0];
       const id = args[1];
       if (!entityName || !id) {
-        throw new Error("Usage: stalezero drift <entity> <id>");
+        throw new Error("Usage: stalezero drift <entity> <id> [--json] [--ci]");
       }
-      console.log((await createStaleZero().drift.scan(entityName, id)).toText());
+      const stale = await localStaleFromFiles();
+      const report = await stale.drift.scan(entityName, id);
+      printOutput(report.toText(), args, {
+        entity: report.entity,
+        status: report.status,
+        findings: report.findings,
+        lastReceiptId: report.lastReceipt?.id
+      });
+      if (args.includes("--ci") && report.status === "drift") {
+        process.exitCode = 1;
+      }
+    }
+  },
+  {
+    name: "freshness-dashboard",
+    aliases: ["slo-dashboard", "freshness"],
+    description: "Summarize freshness budget and SLO status from local receipts",
+    run: async (args) => {
+      const stale = await localStaleFromFiles();
+      const report = await stale.freshnessSloDashboard({ limit: Number(readFlag(args, "--limit") ?? "1000") });
+      printOutput(report.toText(), args, {
+        totalReceipts: report.totalReceipts,
+        freshness: report.freshness,
+        slo: report.slo
+      });
+      if (args.includes("--ci") && (report.freshness.violated > 0 || report.slo.failed > 0)) {
+        process.exitCode = 1;
+      }
     }
   },
   {
@@ -738,6 +765,98 @@ const commands: Command[] = [
       for (const finding of result.findings) {
         console.log(`- ${finding.file}${finding.line ? `:${finding.line}` : ""} ${finding.pattern}${finding.suggestion ? ` -> ${finding.suggestion}` : ""}`);
       }
+    }
+  },
+  {
+    name: "test",
+    description: "Run mutation contract and graph checks for CI",
+    run: async (args) => {
+      const stale = await localStaleFromConfig();
+      const lint = await stale.lint({ ci: args.includes("--ci") });
+      printOutput(lint.toText(), args, lint);
+      if (args.includes("--ci") && lint.failed > 0) {
+        process.exitCode = 1;
+      }
+    }
+  },
+  {
+    name: "app",
+    description: "Scaffold a new StaleZero application",
+    run: async (args) => {
+      if (args[0] !== "create") {
+        throw new Error("Usage: stalezero app create <directory> [--app=name] [--environment=production]");
+      }
+      const directory = args[1];
+      if (!directory) {
+        throw new Error("Usage: stalezero app create <directory>");
+      }
+      const { writeAppTemplate } = await import("create-stalezero");
+      await writeAppTemplate(resolve(directory), {
+        appName: readFlag(args, "--app") ?? directory,
+        environment: readFlag(args, "--environment") ?? "production",
+        packageName: readFlag(args, "--package")
+      });
+      console.log(`Wrote StaleZero app scaffold to ${resolve(directory)}`);
+    }
+  },
+  {
+    name: "adapter",
+    description: "Scaffold a new adapter package",
+    run: async (args) => {
+      if (args[0] !== "create") {
+        throw new Error("Usage: stalezero adapter create <name>");
+      }
+      const name = args[1];
+      if (!name) {
+        throw new Error("Usage: stalezero adapter create <name>");
+      }
+      const { adapterTemplateFiles } = await import("create-stalezero-adapter-template");
+      const folder = resolve("packages/adapters", name);
+      for (const file of adapterTemplateFiles({ packageName: `@stalezero/${name}`, adapterName: `${name}Adapter`, targetAdapter: name })) {
+        const output = join(folder, file.path);
+        await mkdir(dirname(output), { recursive: true });
+        await writeFile(output, file.content);
+      }
+      console.log(`Wrote adapter scaffold to ${folder}`);
+    }
+  },
+  {
+    name: "recipe",
+    description: "Add a recipe scaffold to the repo",
+    run: async (args) => {
+      if (args[0] !== "add") {
+        throw new Error("Usage: stalezero recipe add <name>");
+      }
+      const recipe = args[1];
+      if (!recipe) {
+        throw new Error("Usage: stalezero recipe add <name>");
+      }
+      const command = commands.find((item) => item.name === "generate");
+      await command?.run(["recipe", recipe]);
+    }
+  },
+  {
+    name: "release-check",
+    description: "Run the full release candidate verification suite",
+    run: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const result = spawnSync("npm", ["run", "verify:rc"], { stdio: "inherit", shell: true });
+      if (result.status !== 0) {
+        process.exitCode = result.status ?? 1;
+      }
+    }
+  },
+  {
+    name: "migrate",
+    description: "Scan source for manual invalidation patterns to migrate into StaleZero",
+    run: async (args) => {
+      const folder = resolve(args[0] ?? "src");
+      const result = await scanSource(folder, "migration");
+      printOutput(
+        result.findings.map((finding) => `${finding.file}:${finding.line ?? 0} ${finding.pattern}`).join("\n") || "No migration candidates found",
+        args,
+        result
+      );
     }
   },
   {

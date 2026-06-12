@@ -1,7 +1,8 @@
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { createReceipt } from "../receipt.js";
-import type { Receipt, ReceiptSnapshot, ReceiptStore } from "../types.js";
+import { filterReceipts } from "./filter.js";
+import type { Receipt, ReceiptListOptions, ReceiptSnapshot, ReceiptStore } from "../types.js";
 
 type SqliteDatabase = {
   exec: (sql: string) => void;
@@ -52,22 +53,27 @@ export class SqliteReceiptStore implements ReceiptStore {
     return hydrateReceipt(JSON.parse(String(row.payload)) as ReceiptSnapshot);
   }
 
-  async list(options: { limit?: number; mutation?: string } = {}): Promise<Receipt[]> {
+  async list(options: ReceiptListOptions = {}): Promise<Receipt[]> {
     const params: unknown[] = [];
-    let sql = `SELECT payload FROM ${this.#table}`;
+    const clauses: string[] = [];
     if (options.mutation) {
-      sql += " WHERE mutation = ?";
+      clauses.push("mutation = ?");
       params.push(options.mutation);
     }
-    sql += " ORDER BY timestamp DESC";
-    if (options.limit) {
-      sql += " LIMIT ?";
-      params.push(options.limit);
+    if (options.status) {
+      clauses.push("status = ?");
+      params.push(options.status);
     }
-    return this.#db
+    let sql = `SELECT payload FROM ${this.#table}`;
+    if (clauses.length) {
+      sql += ` WHERE ${clauses.join(" AND ")}`;
+    }
+    sql += " ORDER BY timestamp DESC";
+    const receipts = this.#db
       .prepare(sql)
       .all(...params)
       .map((row) => hydrateReceipt(JSON.parse(String(row.payload)) as ReceiptSnapshot));
+    return filterReceipts(receipts, options);
   }
 
   async prune(options: { maxAgeMs?: number; maxEntries?: number } = {}): Promise<number> {
@@ -95,8 +101,8 @@ export class SqliteReceiptStore implements ReceiptStore {
     return Math.max(0, before - after);
   }
 
-  async export(options: { mutation?: string } = {}): Promise<Receipt[]> {
-    return this.list({ mutation: options.mutation });
+  async export(options: ReceiptListOptions = {}): Promise<Receipt[]> {
+    return this.list(options);
   }
 
   #ensureSchema(): void {
@@ -148,6 +154,9 @@ function hydrateReceipt(snapshot: ReceiptSnapshot): Receipt {
     rollout: snapshot.rollout,
     shadow: snapshot.shadow,
     approval: snapshot.approval,
+    actor: snapshot.actor,
+    tenant: snapshot.tenant,
+    environment: snapshot.environment,
     schemaVersion: snapshot.schemaVersion
   });
 }
