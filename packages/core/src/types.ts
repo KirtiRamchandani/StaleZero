@@ -54,13 +54,24 @@ export type MutationContext<Input = unknown> = {
   traceId?: string;
   source?: string;
   dryRun: boolean;
+  signal?: AbortSignal;
+};
+
+export type BatchExecutionResult<Target extends TargetRef = TargetRef> = {
+  target: Target;
+  status: ExecutionStatus;
+  error?: unknown;
+  message?: string;
 };
 
 export type Adapter<Target extends TargetRef = TargetRef> = {
   name: string;
   execute: (target: Target, context: MutationContext) => MaybePromise<void>;
   verify?: (target: Target, context: MutationContext) => MaybePromise<boolean | string | ProofResult | { ok: boolean; message?: string; evidence?: unknown }>;
-  batchExecute?: (targets: Target[], context: MutationContext) => MaybePromise<void>;
+  batchExecute?: (
+    targets: Target[],
+    context: MutationContext
+  ) => MaybePromise<void | BatchExecutionResult<Target>[]>;
   health?: () => MaybePromise<"ok" | { status: string; details?: unknown }>;
   shutdown?: () => MaybePromise<void>;
 };
@@ -177,7 +188,10 @@ export type ShadowReceiptInfo = {
   removed: string[];
 };
 
+export const RECEIPT_SCHEMA_VERSION = 1;
+
 export type Receipt = {
+  schemaVersion: number;
   id: string;
   mutation: string;
   input: unknown;
@@ -208,12 +222,18 @@ export type Receipt = {
   };
   toJSON: () => ReceiptSnapshot;
   toText: () => string;
+  toMarkdown: () => string;
+  toSlack: () => string;
+  toMermaid: () => string;
   hasFailures: () => boolean;
   hasBlockingFailures: () => boolean;
   assertSuccess: () => void;
 };
 
-export type ReceiptSnapshot = Omit<Receipt, "toJSON" | "toText" | "hasFailures" | "hasBlockingFailures" | "assertSuccess">;
+export type ReceiptSnapshot = Omit<
+  Receipt,
+  "toJSON" | "toText" | "toMarkdown" | "toSlack" | "toMermaid" | "hasFailures" | "hasBlockingFailures" | "assertSuccess"
+>;
 
 export type SchemaLike<Input> =
   | { parse: (input: unknown) => Input }
@@ -278,6 +298,7 @@ export type ChangedOptions = {
   proofTimeoutMs?: number;
   proofRetries?: number;
   profile?: string;
+  signal?: AbortSignal;
 };
 
 export type Preview = {
@@ -940,10 +961,24 @@ export type StaleZeroHooks = {
   onAudit?: (event: AuditEvent) => MaybePromise<void>;
 };
 
+export type StaleZeroMode = "development" | "test" | "production";
+
+export type UndeclaredMutationPolicy = boolean | "warn";
+
+export type DevtoolsConfig = {
+  enabledInProduction?: boolean;
+  requireAuthInProduction?: boolean;
+  allowUnauthenticatedInProduction?: boolean;
+};
+
 export type StaleZeroConfig = {
   app?: string;
   environment?: string;
+  mode?: StaleZeroMode;
   source?: string;
+  allowUndeclaredMutations?: UndeclaredMutationPolicy;
+  security?: SecurityConfig;
+  devtools?: DevtoolsConfig;
   execution?: ExecutionConfig;
   distributed?: DistributedConfig;
   receipts?: ReceiptConfig;

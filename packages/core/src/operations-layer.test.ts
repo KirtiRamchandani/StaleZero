@@ -187,7 +187,7 @@ describe("StaleZero operations layer", () => {
     const owners = stale.ownershipMap();
     const helper = stale.browserHelper({ warnAfterMs: 10 });
 
-    expect(preview.targets.map((targetRef) => targetRef.adapter).sort()).toEqual(["query", "redis", "search"]);
+    expect(preview.targets.map((targetRef) => targetRef.adapter).sort()).toEqual(["next", "query", "redis", "search", "socket"]);
     expect(owners["platform-team"]?.mutations).toContain("UserUpdated");
     expect(helper).toContain("__STALEZERO_BROWSER_HELPER__");
   });

@@ -1,6 +1,10 @@
+import { StaleZeroExecutionError, StaleZeroSecurityError, StaleZeroUnknownMutationError, StaleZeroValidationError } from "./errors.js";
+import { assertSafeHttpTarget } from "./http-safety.js";
 import { createId, now } from "./ids.js";
+import { applyModeDefaults, developmentPreset, productionPreset, testPreset } from "./presets.js";
 import { createReceipt, receiptToText } from "./receipt.js";
 import { MemoryReceiptStore } from "./store.js";
+import { withTimeout } from "./timeout.js";
 import {
   customTarget,
   entity,
@@ -118,6 +122,7 @@ import type {
   WorkflowStepRunner,
   WhyResult
 } from "./types.js";
+import { RECEIPT_SCHEMA_VERSION } from "./types.js";
 
 type MutationMap = Record<string, unknown>;
 type MirrorRecord = {
@@ -147,10 +152,13 @@ type ResolvedReceiptConfig = Required<Omit<NonNullable<StaleZeroConfig["receipts
   retentionMs?: number;
   maxEntries?: number;
 };
-type ResolvedConfig = Omit<StaleZeroConfig, "execution" | "distributed" | "receipts"> & {
+type ResolvedConfig = Omit<StaleZeroConfig, "execution" | "distributed" | "receipts" | "security" | "devtools"> & {
   execution: ResolvedExecutionConfig;
   distributed: Required<NonNullable<StaleZeroConfig["distributed"]>>;
   receipts: ResolvedReceiptConfig;
+  security?: SecurityConfig;
+  devtools: Required<NonNullable<StaleZeroConfig["devtools"]>>;
+  allowUndeclaredMutations: boolean | "warn";
 };
 type ExecuteRequest = {
   mutation: string;
@@ -320,6 +328,7 @@ export class QuickMutationBuilder {
   readonly #input: unknown;
   readonly #targets: TargetRef[] = [];
   readonly #affected: EntityRef[] = [];
+  readonly #runOptions: ChangedOptions = {};
 
   constructor(engine: StaleZeroEngine, mutation: string, input: unknown) {
     this.#engine = engine;
@@ -389,6 +398,41 @@ export class QuickMutationBuilder {
     return this.target(customTarget(adapter, key, { ...options, action }));
   }
 
+  dryRun(): this {
+    this.#runOptions.dryRun = true;
+    return this;
+  }
+
+  strict(): this {
+    this.#runOptions.consistency = "strict";
+    return this;
+  }
+
+  withActor(actor: unknown): this {
+    this.#runOptions.actor = actor;
+    return this;
+  }
+
+  withTenant(tenantId: string): this {
+    this.#runOptions.actor = { tenantId };
+    return this;
+  }
+
+  withTrace(traceId: string): this {
+    this.#runOptions.traceId = traceId;
+    return this;
+  }
+
+  prove(): this {
+    this.#runOptions.prove = true;
+    return this;
+  }
+
+  idempotencyKey(key: string): this {
+    this.#runOptions.idempotencyKey = key;
+    return this;
+  }
+
   preview(): Promise<Preview> {
     return this.#engine.previewRequest({
       mutation: this.#mutation,
@@ -404,8 +448,12 @@ export class QuickMutationBuilder {
       input: this.#input,
       explicitTargets: this.#targets,
       explicitAffected: this.#affected,
-      options
+      options: { ...this.#runOptions, ...options }
     });
+  }
+
+  runStrict(options?: ChangedOptions): Promise<Receipt> {
+    return this.strict().run({ ...options, consistency: "strict" });
   }
 }
 
@@ -540,11 +588,14 @@ export class StaleZeroFlowBuilder {
     while (attempts < maxAttempts) {
       attempts += 1;
       try {
-        const task = () => step.run(this.#input);
+        const task = (signal: AbortSignal) => {
+          signal.throwIfAborted();
+          return step.run(this.#input);
+        };
         if (step.options?.timeoutMs) {
           await withTimeout(task, step.options.timeoutMs, `flow step ${step.name}`);
         } else {
-          await task();
+          await task(new AbortController().signal);
         }
         this.#completed.add(id);
         return {
@@ -629,46 +680,48 @@ export class StaleZeroResourceBuilder implements ResourceBuilderApi {
     const mutations = [`${entityName}Created`, `${entityName}Updated`, `${entityName}Deleted`, `${entityName}RoleChanged`];
 
     for (const mutation of mutations) {
-      this.#engine.mutation(mutation, {
-        owner,
-        affects: (input: Record<string, unknown>) => [entity(entityName, idFrom(input))],
-        fields: (input: Record<string, unknown>) => Object.keys((input.after as Record<string, unknown> | undefined) ?? input),
-        routes: {
-          name: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:search`],
-          email: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:search`],
-          avatarUrl: [`${mutation}:redis`, `${mutation}:query`],
-          role: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:socket`]
-        }
-      });
-      if (options.redis !== false) {
+      if (!this.#engine.hasMutation(mutation)) {
+        this.#engine.mutation(mutation, {
+          owner,
+          affects: (input: Record<string, unknown>) => [entity(entityName, idFrom(input))],
+          fields: (input: Record<string, unknown>) => Object.keys((input.after as Record<string, unknown> | undefined) ?? input),
+          routes: {
+            name: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:search`],
+            email: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:search`],
+            avatarUrl: [`${mutation}:redis`, `${mutation}:query`],
+            role: [`${mutation}:redis`, `${mutation}:query`, `${mutation}:socket`]
+          }
+        });
+      }
+      if (options.redis !== false && !this.#engine.hasMirror(`${mutation}:redis`)) {
         this.#engine.mirror(`${mutation}:redis`, {
           when: mutation,
           owner,
           target: (input: Record<string, unknown>) => redisTarget(`${entityName.toLowerCase()}:${idFrom(input)}`, { owner })
         });
       }
-      if (options.reactQuery !== false) {
+      if (options.reactQuery !== false && !this.#engine.hasMirror(`${mutation}:query`)) {
         this.#engine.mirror(`${mutation}:query`, {
           when: mutation,
           owner,
           target: (input: Record<string, unknown>) => queryTarget([entityName.toLowerCase(), idFrom(input)], { owner })
         });
       }
-      if (options.nextTag !== false) {
+      if (options.nextTag !== false && !this.#engine.hasMirror(`${mutation}:next`)) {
         this.#engine.mirror(`${mutation}:next`, {
           when: mutation,
           owner,
           target: (input: Record<string, unknown>) => nextTagTarget(`${entityName.toLowerCase()}:${idFrom(input)}`, { owner })
         });
       }
-      if (options.socket !== false) {
+      if (options.socket !== false && !this.#engine.hasMirror(`${mutation}:socket`)) {
         this.#engine.mirror(`${mutation}:socket`, {
           when: mutation,
           owner,
           target: (input: Record<string, unknown>) => socketTarget(`${entityName.toLowerCase()}:${idFrom(input)}`, { owner, event: `${entityName.toLowerCase()}.changed` })
         });
       }
-      if (options.search) {
+      if (options.search && !this.#engine.hasMirror(`${mutation}:search`)) {
         this.#engine.mirror(`${mutation}:search`, {
           when: mutation,
           owner,
@@ -753,10 +806,20 @@ export class StaleZeroEngine {
   };
 
   constructor(config: StaleZeroConfig = {}) {
+    const resolved = applyModeDefaults(config);
     this.#config = {
-      app: config.app,
-      environment: config.environment,
-      source: config.source,
+      app: resolved.app,
+      environment: resolved.environment,
+      mode: resolved.mode,
+      source: resolved.source,
+      allowUndeclaredMutations: resolved.allowUndeclaredMutations ?? "warn",
+      security: resolved.security,
+      devtools: {
+        enabledInProduction: false,
+        requireAuthInProduction: true,
+        allowUnauthenticatedInProduction: false,
+        ...resolved.devtools
+      },
       execution: {
         defaultConsistency: "best-effort",
         timeoutMs: 3000,
@@ -766,18 +829,18 @@ export class StaleZeroEngine {
         payloadLimitBytes: Number.POSITIVE_INFINITY,
         warnOnMemoryReceiptStoreInProduction: true,
         rateLimitPerSecond: Number.POSITIVE_INFINITY,
-        ...config.execution,
+        ...resolved.execution,
         retry: {
           backoffMs: 0,
           maxBackoffMs: 1000,
           jitter: false,
-          ...config.execution?.retry
+          ...resolved.execution?.retry
         },
         circuitBreaker: {
           enabled: false,
           failureThreshold: 5,
           cooldownMs: 30_000,
-          ...config.execution?.circuitBreaker
+          ...resolved.execution?.circuitBreaker
         }
       },
       distributed: {
@@ -785,7 +848,7 @@ export class StaleZeroEngine {
         ignoreSelf: true,
         maxHops: 3,
         dedupeTtlMs: 60_000,
-        ...config.distributed
+        ...resolved.distributed
       },
       receipts: {
         enabled: true,
@@ -795,15 +858,20 @@ export class StaleZeroEngine {
         secretSafe: true,
         retentionMs: undefined,
         maxEntries: undefined,
-        ...config.receipts
+        ...resolved.receipts
       },
-      hooks: config.hooks
+      hooks: resolved.hooks
     };
 
+    if (this.#config.security) {
+      this.#securityConfig = { ...this.#securityConfig, ...this.#config.security };
+    }
+
     if (
-      this.#config.environment === "production" &&
+      (this.#config.mode === "production" || this.#config.environment === "production") &&
       this.#config.execution.warnOnMemoryReceiptStoreInProduction &&
-      this.#config.receipts.enabled
+      this.#config.receipts.enabled &&
+      this.#receiptStore instanceof MemoryReceiptStore
     ) {
       console.warn("StaleZero is using the in-memory receipt store in production. Register a durable store with useReceiptStore().");
     }
@@ -832,7 +900,18 @@ export class StaleZeroEngine {
     return this;
   }
 
+  hasMutation(name: string): boolean {
+    return this.#mutations.has(name);
+  }
+
+  hasMirror(name: string): boolean {
+    return this.#mirrors.has(name);
+  }
+
   mutation<Input = unknown>(name: string, definition: MutationDefinition<Input>): StaleZero {
+    if (this.#mutations.has(name)) {
+      throw new StaleZeroValidationError(`Mutation "${name}" is already registered`, { mutation: name });
+    }
     this.#mutations.set(name, definition as MutationDefinition);
     return this as unknown as StaleZero;
   }
@@ -2146,6 +2225,7 @@ export class StaleZeroEngine {
       toJSON: () => ({ mutation, input: redactedInput, affected, targets: previewTargets, risk, confidence, targetConfidence }),
       toText: () =>
         receiptToText({
+          schemaVersion: RECEIPT_SCHEMA_VERSION,
           id: "preview",
           mutation,
           input: redactedInput,
@@ -2165,6 +2245,7 @@ export class StaleZeroEngine {
     const started = now();
     const mutation = request.mutation;
     const definition = this.#mutations.get(mutation);
+    this.#assertUndeclaredMutationAllowed(mutation, definition, request.explicitTargets);
     const options = this.#applyProfile(mutation, request.options);
     const consistency = this.#consistency(options);
     const dryRun = options?.dryRun === true || consistency === "dry-run";
@@ -2172,11 +2253,14 @@ export class StaleZeroEngine {
     const parsed = await this.#parseInput(definition?.schema, request.input);
     this.#assertPayloadSize(parsed);
     const affected = await this.#affected(mutation, parsed, request.explicitAffected ?? []);
+    const abortController = new AbortController();
+    options?.signal?.addEventListener("abort", () => abortController.abort(options.signal?.reason), { once: true });
     const context = await this.#context(mutation, parsed, affected, {
       dryRun: dryRun || proofOnly,
       traceId: options?.traceId,
       source: options?.source,
-      id: options?.idempotencyKey
+      id: options?.idempotencyKey,
+      signal: abortController.signal
     });
     const changedFields = definition?.fields ? await definition.fields(parsed) : inferChangedFields(parsed);
     const targets = await this.#targets(mutation, parsed, context, request.explicitTargets ?? [], changedFields);
@@ -2615,9 +2699,10 @@ export class StaleZeroEngine {
         attempt += 1;
         try {
           const result = await withTimeout(
-            () => adapter.verify?.(targetRef, context),
+            (signal) => adapter.verify?.({ ...targetRef }, { ...context, signal }),
             timeoutMs ?? targetRef.timeoutMs ?? this.#config.execution.timeoutMs ?? 3000,
-            `${targetRef.adapter} proof ${targetRef.key}`
+            `${targetRef.adapter} proof ${targetRef.key}`,
+            context.signal
           );
           const normalized = normalizeProofResult(result);
           if (normalized.status === "confirmed" || attempt > retries) {
@@ -2664,11 +2749,29 @@ export class StaleZeroEngine {
     }
 
     try {
-      await withTimeout(
-        () => adapter.batchExecute?.(batchTargets, context),
+      const batchResult = await withTimeout(
+        (signal) => adapter.batchExecute?.(batchTargets, { ...context, signal }),
         Math.max(...batchTargets.map((targetRef) => targetRef.timeoutMs ?? this.#config.execution.timeoutMs ?? 3000)),
-        `${adapter.name} batch`
+        `${adapter.name} batch`,
+        context.signal
       );
+      if (Array.isArray(batchResult)) {
+        return batchTargets.map((targetRef) => {
+          const item = batchResult.find((entry) => entry.target.adapter === targetRef.adapter && entry.target.key === targetRef.key && entry.target.action === targetRef.action);
+          if (!item) {
+            return this.#result(targetRef, "success", now() - started, 1, undefined, undefined, { key: batchKey, size: batchTargets.length });
+          }
+          return this.#result(
+            targetRef,
+            item.status,
+            now() - started,
+            1,
+            item.error,
+            item.status === "skipped" ? item.message : undefined,
+            { key: batchKey, size: batchTargets.length }
+          );
+        });
+      }
       return batchTargets.map((targetRef) =>
         this.#result(targetRef, "success", now() - started, 1, undefined, undefined, { key: batchKey, size: batchTargets.length })
       );
@@ -2723,9 +2826,10 @@ export class StaleZeroEngine {
       try {
         await this.#chaosBeforeExecute(targetRef);
         await withTimeout(
-          () => adapter.execute(targetRef, context),
+          (signal) => adapter.execute(targetRef, { ...context, signal }),
           targetRef.timeoutMs ?? this.#config.execution.timeoutMs ?? 3000,
-          `${targetRef.adapter} ${targetRef.key}`
+          `${targetRef.adapter} ${targetRef.key}`,
+          context.signal
         );
         const result = this.#result(targetRef, "success", now() - started, attempt);
         this.#recordCircuitSuccess(targetRef.adapter);
@@ -2902,11 +3006,33 @@ export class StaleZeroEngine {
     return routed;
   }
 
+  #assertUndeclaredMutationAllowed(
+    mutation: string,
+    definition: MutationDefinition | undefined,
+    explicitTargets: TargetRef[] | undefined
+  ): void {
+    if (definition) {
+      return;
+    }
+    const policy = this.#config.allowUndeclaredMutations;
+    const hasQuickTargets = Boolean(explicitTargets?.length);
+    if (policy === true) {
+      return;
+    }
+    if (policy === "warn") {
+      console.warn(
+        `StaleZero: mutation "${mutation}" is not registered${hasQuickTargets ? " (quick builder targets will still run)" : ""}. Register it with stale.mutation() for production safety.`
+      );
+      return;
+    }
+    throw new StaleZeroUnknownMutationError(mutation, { hasQuickTargets });
+  }
+
   async #context(
     mutation: string,
     input: unknown,
     affected: EntityRef[],
-    options: { dryRun: boolean; traceId?: string; source?: string; id?: string }
+    options: { dryRun: boolean; traceId?: string; source?: string; id?: string; signal?: AbortSignal }
   ): Promise<MutationContext> {
     return {
       id: options.id ?? createId("rcp"),
@@ -2918,7 +3044,8 @@ export class StaleZeroEngine {
       environment: this.#config.environment,
       traceId: options.traceId ?? createId("trace"),
       source: options.source ?? this.#config.source,
-      dryRun: options.dryRun
+      dryRun: options.dryRun,
+      signal: options.signal
     };
   }
 
@@ -3000,6 +3127,7 @@ export class StaleZeroEngine {
       toJSON: () => ({ mutation, input: redactedInput, affected, targets, risk, confidence, targetConfidence }),
       toText: () =>
         receiptToText({
+          schemaVersion: RECEIPT_SCHEMA_VERSION,
           id: "preview",
           mutation,
           input: redactedInput,
@@ -3317,19 +3445,20 @@ export class StaleZeroEngine {
   }
 }
 
-export class StaleZeroExecutionError extends Error {
-  readonly receipt: Receipt;
-
-  constructor(receipt: Receipt) {
-    super(`Mutation ${receipt.mutation} finished with status ${receipt.status}`);
-    this.name = "StaleZeroExecutionError";
-    this.receipt = receipt;
-  }
-}
+export { StaleZeroExecutionError } from "./errors.js";
 
 export function createStaleZero(config?: StaleZeroConfig): StaleZero<{}> {
   return new StaleZeroEngine(config) as unknown as StaleZero<{}>;
 }
+
+createStaleZero.production = (config: Omit<StaleZeroConfig, "mode"> = {}): StaleZero<{}> =>
+  new StaleZeroEngine(productionPreset(config)) as unknown as StaleZero<{}>;
+
+createStaleZero.dev = (config: Omit<StaleZeroConfig, "mode"> = {}): StaleZero<{}> =>
+  new StaleZeroEngine(developmentPreset(config)) as unknown as StaleZero<{}>;
+
+createStaleZero.test = (config: Omit<StaleZeroConfig, "mode"> = {}): StaleZero<{}> =>
+  new StaleZeroEngine(testPreset(config)) as unknown as StaleZero<{}>;
 
 function asArray<T>(value: T | T[] | undefined | null): T[] {
   if (value === undefined || value === null) {
@@ -3843,44 +3972,6 @@ function patternMatches(pattern: string, value: string): boolean {
   return new RegExp(`^${escaped}$`).test(value);
 }
 
-function assertSafeHttpTarget(targetRef: TargetRef): void {
-  let url: URL;
-  try {
-    url = new URL(targetRef.key);
-  } catch {
-    throw new Error(`Blocked HTTP target ${targetRef.key}: invalid URL`);
-  }
-  const meta = isRecord(targetRef.meta) ? targetRef.meta : {};
-  const requireHttps = meta.requireHttps !== false;
-  if (requireHttps && url.protocol !== "https:") {
-    throw new Error(`Blocked HTTP target ${targetRef.key}: HTTPS is required`);
-  }
-  const allowHosts = Array.isArray(meta.allowHosts) ? meta.allowHosts.map(String) : undefined;
-  if (allowHosts && !allowHosts.includes(url.hostname)) {
-    throw new Error(`Blocked HTTP target ${targetRef.key}: host is not allowed`);
-  }
-  const blockLocalhost = meta.blockLocalhost !== false;
-  if (blockLocalhost && ["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(url.hostname)) {
-    throw new Error(`Blocked HTTP target ${targetRef.key}: localhost is not allowed`);
-  }
-  const blockPrivateIps = meta.blockPrivateIps !== false;
-  if (blockPrivateIps && isPrivateHost(url.hostname)) {
-    throw new Error(`Blocked HTTP target ${targetRef.key}: private network target is not allowed`);
-  }
-}
-
-function isPrivateHost(hostname: string): boolean {
-  if (hostname === "169.254.169.254") {
-    return true;
-  }
-  const parts = hostname.split(".").map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
-    return false;
-  }
-  const [first, second] = parts as [number, number, number, number];
-  return first === 10 || (first === 172 && second >= 16 && second <= 31) || (first === 192 && second === 168) || first === 127;
-}
-
 async function mapLimit<T, TResult>(
   items: T[],
   limit: number,
@@ -3902,22 +3993,6 @@ async function mapLimit<T, TResult>(
   return results;
 }
 
-async function withTimeout<T>(task: () => MaybePromise<T>, timeoutMs: number, label: string): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      Promise.resolve().then(task),
-      new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
-      })
-    ]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
-
 function receiptStatus(results: ExecutionResult[]): "success" | "partial" | "failed" {
   const failures = results.filter((result) => result.status === "failed");
   if (failures.length === 0) {
@@ -3931,7 +4006,8 @@ function receiptStatus(results: ExecutionResult[]): "success" | "partial" | "fai
 
 function serializeError(error: unknown): { name: string; message: string; stack?: string } {
   if (error instanceof Error) {
-    return { name: error.name, message: error.message, stack: error.stack };
+    const name = error.name === "StaleZeroTimeoutError" ? "TimeoutError" : error.name;
+    return { name, message: error.message, stack: error.stack };
   }
   return { name: "Error", message: String(error) };
 }

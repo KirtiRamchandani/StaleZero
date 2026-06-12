@@ -15,6 +15,8 @@
   <img alt="modules" src="https://img.shields.io/badge/modules-ESM-111827.svg">
   <img alt="node" src="https://img.shields.io/badge/node-%3E%3D20-339933.svg">
   <img alt="status" src="https://img.shields.io/badge/status-release_candidate-f59e0b.svg">
+  <img alt="receipts" src="https://img.shields.io/badge/receipts-versioned-0ea5e9.svg">
+  <img alt="safety" src="https://img.shields.io/badge/production-safe_defaults-16a34a.svg">
 </p>
 
 <p align="center">
@@ -63,10 +65,13 @@ npm install stalezero
 ```ts
 import { createStaleZero, entity, nextTagTarget, queryTarget, redisTarget } from "stalezero";
 
-const stale = createStaleZero({
-  app: "api",
-  environment: process.env.NODE_ENV
+// Production preset: block unsafe targets, reject undeclared mutations, disable devtools by default
+const stale = createStaleZero.production({
+  app: "api"
 });
+
+// Development preset: warn on undeclared mutations, full local debugging
+// const stale = createStaleZero.dev({ app: "api" });
 
 stale.mutation("UserUpdated", {
   owner: "platform-team",
@@ -158,11 +163,30 @@ The project is a release candidate. The core loop is stable; not every adapter s
 
 Each adapter documents supported actions, failure behavior, timeout behavior, retry safety, optional dependencies, and test coverage. See [Adapter Tiers](docs/adapter-tiers.md).
 
+## Production Presets
+
+| Preset | Undeclared mutations | Unsafe targets | Devtools | Receipt store |
+| --- | --- | --- | --- | --- |
+| `createStaleZero.production()` | Rejected | Blocked | Disabled | Warns if in-memory |
+| `createStaleZero.dev()` | Warn | Opt-in block | Local-friendly | In-memory OK |
+| `createStaleZero.test()` | Allowed | Opt-in block | N/A | In-memory OK |
+
+Durable receipt stores ship in core:
+
+```ts
+import { createStaleZero, FileReceiptStore } from "stalezero";
+
+const stale = createStaleZero.production({ app: "api" });
+stale.useReceiptStore(new FileReceiptStore({ path: ".stalezero/receipts.jsonl" }));
+```
+
+Typed errors (`StaleZeroUnknownMutationError`, `StaleZeroSecurityError`, `StaleZeroTimeoutError`) include `code`, `details`, and docs URLs for fast debugging.
+
 ## What Ships
 
 The shipped surface focuses on the mutation receipt loop:
 
-- stable public API: `createStaleZero()`, `mutation()`, `mirror()`, `preview()`, `changed()`, `why()`
+- stable public API: `createStaleZero()`, `.production()`, `.dev()`, `.test()`, `mutation()`, `mirror()`, `preview()`, `changed()`, `why()`
 - receipt generation with JSON and readable text output
 - strict, best-effort, dry-run, timeout, retry, priority, concurrency, dedupe, and batching
 - proof mode with adapter `verify()` hooks and CLI `stalezero prove`
@@ -175,7 +199,11 @@ The shipped surface focuses on the mutation receipt loop:
 ## CLI
 
 ```bash
+stalezero run UserUpdated --userId=123 --prove
+stalezero dry-run UserUpdated --userId=123
 stalezero preview UserUpdated --userId=123
+stalezero receipts list --mutation=UserUpdated
+stalezero graph --format=mermaid
 stalezero snapshot UserUpdated --userId=123
 stalezero lint --ci
 stalezero prove receipt.json --ci
@@ -243,6 +271,7 @@ Read these before production:
 | API stability | [docs/api-stability.md](docs/api-stability.md) |
 | Compatibility | [docs/compatibility.md](docs/compatibility.md) |
 | Release checklist | [docs/release-checklist.md](docs/release-checklist.md) |
+| Implementation plan | [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
 
 ## Philosophy
 

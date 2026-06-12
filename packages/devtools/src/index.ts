@@ -10,6 +10,8 @@ export type DevtoolsOptions = {
         headers?: string[];
       };
   enabledInProduction?: boolean;
+  requireAuthInProduction?: boolean;
+  allowUnauthenticatedInProduction?: boolean;
   isProduction?: boolean;
   payloadLimitBytes?: number;
   receiptsLimit?: number;
@@ -76,6 +78,15 @@ export function createDevtoolsWebHandler(stale: StaleZero, options: DevtoolsOpti
     }
     if (isProduction(options) && !options.enabledInProduction) {
       return text("Devtools are disabled in production by default.", 403, headers);
+    }
+    if (
+      isProduction(options) &&
+      options.enabledInProduction &&
+      options.requireAuthInProduction !== false &&
+      !options.allowUnauthenticatedInProduction &&
+      !options.auth
+    ) {
+      return text("Devtools require an auth() hook in production. Pass allowUnauthenticatedInProduction only for local debugging.", 403, headers);
     }
     if (options.auth && !(await options.auth(request))) {
       return text("Unauthorized", 401, headers);

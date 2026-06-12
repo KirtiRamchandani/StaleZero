@@ -81,9 +81,76 @@ const commands: Command[] = [
         throw new Error("Usage: stalezero preview <mutation> [json|--key=value]");
       }
       const input = parseInputArgs(args.slice(1));
-      const stale = createStaleZero();
+      const stale = await localStaleFromConfig();
       const preview = await stale.preview(mutation, input);
-      console.log(preview.toText());
+      printOutput(preview.toText(), args, { mutation, preview: preview.toJSON() });
+    }
+  },
+  {
+    name: "run",
+    description: "Execute a declared mutation from JSON input",
+    run: async (args) => {
+      const mutation = args[0];
+      if (!mutation) {
+        throw new Error("Usage: stalezero run <mutation> [json|--key=value] [--strict] [--prove] [--dry-run]");
+      }
+      const input = parseInputArgs(args.slice(1).filter((arg) => !arg.startsWith("--")));
+      const stale = await localStaleFromConfig();
+      const receipt = await stale.changed(mutation, input, {
+        consistency: args.includes("--strict") ? "strict" : undefined,
+        prove: args.includes("--prove") ? true : undefined,
+        dryRun: args.includes("--dry-run") ? true : undefined
+      });
+      printOutput(receipt.toText(), args, receipt.toJSON());
+      if (args.includes("--ci") && receipt.hasBlockingFailures()) {
+        process.exitCode = 1;
+      }
+    }
+  },
+  {
+    name: "dry-run",
+    description: "Dry-run a mutation without executing adapter targets",
+    run: async (args) => {
+      const mutation = args[0];
+      if (!mutation) {
+        throw new Error("Usage: stalezero dry-run <mutation> [json|--key=value]");
+      }
+      const input = parseInputArgs(args.slice(1));
+      const stale = await localStaleFromConfig();
+      const receipt = await stale.changed(mutation, input, { dryRun: true });
+      printOutput(receipt.toText(), args, receipt.toJSON());
+    }
+  },
+  {
+    name: "receipts",
+    description: "List, show, or export receipts from the local receipt store",
+    run: async (args) => {
+      const subcommand = args[0];
+      if (!subcommand || !["list", "show", "export"].includes(subcommand)) {
+        throw new Error("Usage: stalezero receipts <list|show|export> [id|file] [--mutation=name] [--json]");
+      }
+      const stale = await localStaleFromFiles();
+      if (subcommand === "list") {
+        const mutation = readFlag(args, "--mutation");
+        const receipts = await stale.receipts.list({ mutation, limit: Number(readFlag(args, "--limit") ?? "50") });
+        printOutput(receipts.map((receipt) => `${receipt.id} ${receipt.mutation} ${receipt.status}`).join("\n"), args, receipts.map((receipt) => receipt.toJSON()));
+        return;
+      }
+      const idOrFile = args[1];
+      if (!idOrFile) {
+        throw new Error(`Usage: stalezero receipts ${subcommand} <id|file>`);
+      }
+      const raw = await readReceipt(idOrFile);
+      if (subcommand === "show") {
+        printOutput(JSON.stringify(JSON.parse(raw), null, 2), args, JSON.parse(raw));
+        return;
+      }
+      const receipts = JSON.parse(raw);
+      const payload = Array.isArray(receipts) ? receipts : [receipts];
+      const output = resolve(".stalezero/receipts-export.jsonl");
+      await mkdir(dirname(output), { recursive: true });
+      await writeFile(output, `${payload.map((item) => JSON.stringify(item)).join("\n")}\n`);
+      console.log(`Exported ${payload.length} receipt(s) to ${output}`);
     }
   },
   {
@@ -390,19 +457,36 @@ const commands: Command[] = [
   },
   {
     name: "graph",
-    description: "Write graph JSON, SVG, and HTML files from a manifest",
+    description: "Write graph JSON, SVG, HTML, Mermaid, or DOT files from a manifest",
     run: async (args) => {
       const manifest = await readManifest(args[0]);
+      const format = readFlag(args, "--format") ?? "all";
       const jsonOutput = resolve(".stalezero/graph.json");
       const svgOutput = resolve(".stalezero/graph.svg");
       const htmlOutput = resolve(".stalezero/graph.html");
+      const mermaidOutput = resolve(".stalezero/graph.mmd");
+      const dotOutput = resolve(".stalezero/graph.dot");
       await mkdir(dirname(jsonOutput), { recursive: true });
-      await writeFile(jsonOutput, `${JSON.stringify(manifest, null, 2)}\n`);
-      await writeFile(svgOutput, renderGraphSvg(manifest));
-      await writeFile(htmlOutput, renderGraphHtml(manifest));
-      console.log(`Wrote ${jsonOutput}`);
-      console.log(`Wrote ${svgOutput}`);
-      console.log(`Wrote ${htmlOutput}`);
+      const writes: Array<[string, string]> = [];
+      if (format === "all" || format === "json") {
+        writes.push([jsonOutput, `${JSON.stringify(manifest, null, 2)}\n`]);
+      }
+      if (format === "all" || format === "svg") {
+        writes.push([svgOutput, renderGraphSvg(manifest)]);
+      }
+      if (format === "all" || format === "html") {
+        writes.push([htmlOutput, renderGraphHtml(manifest)]);
+      }
+      if (format === "all" || format === "mermaid") {
+        writes.push([mermaidOutput, renderGraphMermaid(manifest)]);
+      }
+      if (format === "all" || format === "dot") {
+        writes.push([dotOutput, renderGraphDot(manifest)]);
+      }
+      for (const [path, body] of writes) {
+        await writeFile(path, body);
+        console.log(`Wrote ${path}`);
+      }
     }
   },
   {
@@ -1142,6 +1226,55 @@ function duplicates(values: string[]): string[] {
     seen.add(value);
   }
   return [...repeated];
+}
+
+function printOutput(text: string, args: string[], jsonValue: unknown): void {
+  if (args.includes("--json")) {
+    console.log(JSON.stringify(jsonValue, null, 2));
+    return;
+  }
+  console.log(text);
+}
+
+async function localStaleFromConfig(): Promise<ReturnType<typeof createStaleZero>> {
+  const stale = createStaleZero.dev();
+  const manifest = await tryReadManifest();
+  if (manifest) {
+    stale.loadManifest(manifest);
+  }
+  return stale;
+}
+
+function renderGraphMermaid(manifest: Manifest): string {
+  const lines = ["flowchart LR"];
+  for (const [mutation, item] of Object.entries(manifest.mutations)) {
+    const node = `m_${safeMermaidId(mutation)}["${escapeMermaid(mutation)}"]`;
+    lines.push(node);
+    for (const mirror of item.mirrors) {
+      const mirrorNode = `t_${safeMermaidId(mirror)}["${escapeMermaid(mirror)}"]`;
+      lines.push(mirrorNode, `m_${safeMermaidId(mutation)} --> t_${safeMermaidId(mirror)}`);
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function renderGraphDot(manifest: Manifest): string {
+  const lines = ["digraph stalezero {"];
+  for (const [mutation, item] of Object.entries(manifest.mutations)) {
+    for (const mirror of item.mirrors) {
+      lines.push(`  "${mutation}" -> "${mirror}";`);
+    }
+  }
+  lines.push("}");
+  return `${lines.join("\n")}\n`;
+}
+
+function safeMermaidId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_]/g, "_");
+}
+
+function escapeMermaid(value: string): string {
+  return value.replace(/"/g, "'");
 }
 
 function renderGraphSvg(manifest: Manifest): string {

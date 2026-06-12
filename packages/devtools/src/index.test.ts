@@ -10,6 +10,15 @@ describe("devtools safety controls", () => {
     expect(response.status).toBe(403);
   });
 
+  it("requires auth when enabled in production", async () => {
+    const handler = createDevtoolsWebHandler(createStaleZero(), {
+      isProduction: true,
+      enabledInProduction: true
+    });
+    const response = await handler(new Request("https://example.test/devtools"));
+    expect(response.status).toBe(403);
+  });
+
   it("supports auth hooks and cors headers", async () => {
     const handler = createDevtoolsWebHandler(createStaleZero(), {
       auth: (request) => request.headers.get("authorization") === "Bearer ok",

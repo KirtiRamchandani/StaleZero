@@ -1,4 +1,5 @@
 import type { EntityRef, ExecutionResult, Receipt, ReceiptSnapshot, ReceiptStatus, TargetRef } from "./types.js";
+import { RECEIPT_SCHEMA_VERSION } from "./types.js";
 
 export function createReceipt(input: {
   id: string;
@@ -25,8 +26,10 @@ export function createReceipt(input: {
   rollout?: Receipt["rollout"];
   shadow?: Receipt["shadow"];
   approval?: Receipt["approval"];
+  schemaVersion?: number;
 }): Receipt {
   const snapshot: ReceiptSnapshot = {
+    schemaVersion: input.schemaVersion ?? RECEIPT_SCHEMA_VERSION,
     id: input.id,
     mutation: input.mutation,
     input: input.payload,
@@ -57,6 +60,9 @@ export function createReceipt(input: {
     ...snapshot,
     toJSON: () => ({ ...snapshot, affected: [...snapshot.affected], targets: [...snapshot.targets], results: [...snapshot.results] }),
     toText: () => receiptToText(snapshot),
+    toMarkdown: () => receiptToMarkdown(snapshot),
+    toSlack: () => receiptToSlack(snapshot),
+    toMermaid: () => receiptToMermaid(snapshot),
     hasFailures: () => snapshot.results.some((result) => result.status === "failed"),
     hasBlockingFailures: () => snapshot.results.some((result) => result.status === "failed" && result.target.required !== false),
     assertSuccess: () => {
@@ -157,6 +163,56 @@ export function receiptToText(receipt: ReceiptSnapshot): string {
     }
   }
 
-  lines.push("", `Status: ${receipt.status}`, `Duration: ${receipt.durationMs}ms`);
+  lines.push("", `Status: ${receipt.status}`, `Duration: ${receipt.durationMs}ms`, `Schema: v${receipt.schemaVersion}`);
   return lines.join("\n");
+}
+
+export function receiptToMarkdown(receipt: ReceiptSnapshot): string {
+  const text = receiptToText(receipt);
+  return [
+    `# Receipt ${receipt.id}`,
+    "",
+    `- Mutation: \`${receipt.mutation}\``,
+    `- Status: **${receipt.status}**`,
+    `- Duration: ${receipt.durationMs}ms`,
+    `- Schema: v${receipt.schemaVersion}`,
+    receipt.traceId ? `- Trace: \`${receipt.traceId}\`` : "",
+    "",
+    "```txt",
+    text,
+    "```"
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function receiptToSlack(receipt: ReceiptSnapshot): string {
+  const failures = receipt.results.filter((result) => result.status === "failed").length;
+  const emoji = receipt.status === "success" ? ":white_check_mark:" : receipt.status === "dry-run" ? ":eyes:" : ":warning:";
+  return [
+    `${emoji} *${receipt.mutation}* ${receipt.status}`,
+    `Targets: ${receipt.targets.length} | Failures: ${failures} | Duration: ${receipt.durationMs}ms`,
+    receipt.risk ? `Risk: ${receipt.risk.level}` : "",
+    receipt.proofStatus ? `Proof: ${receipt.proofStatus}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function receiptToMermaid(receipt: ReceiptSnapshot): string {
+  const lines = ["flowchart TD", `mutation["${escapeMermaid(receipt.mutation)}"]`];
+  receipt.targets.forEach((target, index) => {
+    const node = `t${index}["${escapeMermaid(`${target.adapter}:${target.action}`)}"]`;
+    lines.push(node, `mutation --> ${node}`);
+    const result = receipt.results.find((item) => item.adapter === target.adapter && item.key === target.key && item.action === target.action);
+    if (result) {
+      const resultNode = `r${index}["${result.status}"]`;
+      lines.push(resultNode, `t${index} --> ${resultNode}`);
+    }
+  });
+  return lines.join("\n");
+}
+
+function escapeMermaid(value: string): string {
+  return value.replace(/"/g, "'");
 }

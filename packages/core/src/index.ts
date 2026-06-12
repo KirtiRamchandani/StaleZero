@@ -2,14 +2,36 @@ export {
   createStaleZero,
   QuickMutationBuilder,
   StaleZeroEngine,
-  StaleZeroExecutionError,
   StaleZeroFlowBuilder,
   StaleZeroResourceBuilder
 } from "./engine.js";
+export {
+  StaleZeroError,
+  StaleZeroValidationError,
+  StaleZeroUnknownMutationError,
+  StaleZeroSecurityError,
+  StaleZeroTimeoutError,
+  StaleZeroConfigError,
+  StaleZeroExecutionError,
+  isStaleZeroError,
+  STALEZERO_DOCS_BASE
+} from "./errors.js";
+export {
+  assertSafeHttpTarget,
+  assertSafeHttpUrl,
+  assertSafeHttpMethod,
+  httpSafetyOptionsFromTarget,
+  type HttpSafetyOptions
+} from "./http-safety.js";
+export { productionPreset, developmentPreset, testPreset, resolveStaleZeroMode } from "./presets.js";
+export { withTimeout } from "./timeout.js";
 export type { AutopilotRecipeOptions, CommandInput, MutationInput, ReceiptsApi, StaleZero } from "./engine.js";
 export { createId } from "./ids.js";
-export { createReceipt, receiptToText } from "./receipt.js";
+export { createReceipt, receiptToText, receiptToMarkdown, receiptToSlack, receiptToMermaid } from "./receipt.js";
 export { MemoryReceiptStore } from "./store.js";
+export { FileReceiptStore } from "./stores/file-store.js";
+export { PostgresReceiptStore } from "./stores/postgres-store.js";
+export { SqliteReceiptStore } from "./stores/sqlite-store.js";
 export {
   analyticsTarget,
   apolloTarget,
@@ -142,9 +164,14 @@ export type {
   RateLimitConfig,
   Receipt,
   ReceiptConfig,
+  RECEIPT_SCHEMA_VERSION,
   ReceiptSnapshot,
   ReceiptStatus,
   ReceiptStore,
+  StaleZeroMode,
+  UndeclaredMutationPolicy,
+  DevtoolsConfig,
+  BatchExecutionResult,
   RecipeInstaller,
   RedactionOptions,
   ReplayOptions,
