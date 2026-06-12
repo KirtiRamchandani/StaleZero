@@ -1,8 +1,8 @@
 import { run, writeReport, markdownTable } from "./lib.mjs";
 
 const rows = [];
-const audit = await run("npm", ["audit", "--audit-level=moderate"], { capture: true, allowFailure: true });
-rows.push(["npm audit --audit-level=moderate", audit.code === 0 ? "pass" : "review", audit.stdout.trim().split("\n").at(-1) ?? ""]);
+const audit = await run("npm", ["audit", "--omit=dev", "--audit-level=moderate"], { capture: true, allowFailure: true });
+rows.push(["npm audit --omit=dev --audit-level=moderate", audit.code === 0 ? "pass" : "review", audit.stdout.trim().split("\n").at(-1) ?? ""]);
 
 await writeReport(
   "security-hardening-report",

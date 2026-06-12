@@ -5,6 +5,15 @@
     "export type ApolloCacheLike = {",
     "export type ApolloClientLike = {"
   ],
+  "@stalezero/bullmq": [
+    "export declare function bullmqAdapter(queue: BullMQQueueLike | Record<string, BullMQQueueLike>, options?: BullMQAdapterOptions): Adapter<TargetRef<\"bullmq\">>;",
+    "export type BullMQAdapterOptions = {",
+    "export type BullMQQueueLike = {"
+  ],
+  "@stalezero/cdn": [
+    "export declare function cdnAdapter(options?: CdnAdapterOptions): Adapter<TargetRef<\"cdn\">>;",
+    "export type CdnAdapterOptions = {"
+  ],
   "@stalezero/cloudflare-kv": [
     "export declare function cloudflareKvAdapter(options: CloudflareKvAdapterOptions): Adapter<TargetRef<\"cloudflare-kv\">>;",
     "export declare function kvPrefixTarget(prefix: string, options?: Omit<TargetRef<\"cloudflare-kv\">, \"adapter\" | \"key\" | \"action\">): TargetRef<\"cloudflare-kv\">;",
@@ -23,6 +32,11 @@
   "@stalezero/http": [
     "export declare function httpAdapter(options?: HttpAdapterOptions): Adapter<TargetRef<\"http\">>;",
     "export type HttpAdapterOptions = {"
+  ],
+  "@stalezero/memcached": [
+    "export declare function memcachedAdapter(client: MemcachedClientLike, options?: MemcachedAdapterOptions): Adapter<TargetRef<\"memcached\">>;",
+    "export type MemcachedAdapterOptions = {",
+    "export type MemcachedClientLike = {"
   ],
   "@stalezero/memory": [
     "export declare function memoryAdapter(name?: string): MemoryAdapter;",
@@ -136,13 +150,28 @@
     "export {};"
   ],
   "@stalezero/core": [
-    "export type { Adapter, ApprovalConfig, AuditEvent, BadgeResult, BlackboxConfig, BlackboxEntry, BrowserHelperOptions, CanaryResult, ChaosConfig, ChangedOptions, CommandDefinition, CompiledManifest, ConsistencyProfile, ConsistencyMode, CoalesceConfig, CostReport, Diagnostic, DistributedConfig, DriftApi, DriftFinding, DriftProbe, DriftReport, EntityRef, EventBus, ExplainStaleReport, ExecutionConfig, ExecutionResult, ExecutionStatus, FlowResult, FlowStepOptions, FlowStepReceipt, FreshnessBudget, FreshnessStatus, GraphLintFinding, GraphLintReport, GraphLintRule, GraphLintSeverity, HeatmapReport, HumanReceipt, JsonPrimitive, JsonValue, Manifest, MaybePromise, MarketplaceEntry, MirrorDefinition, MutationContract, MutationContractResult, MutationContext, MutationDefinition, MutationSnapshot, MutationSnapshotData, NotifyConfig, OptimizationReport, OwnershipMap, Preview, PreviewConfidence, ProjectScore, ProofResult, RateLimitConfig, Receipt, ReceiptConfig, ReceiptSnapshot, ReceiptStatus, ReceiptStore, RecipeInstaller, RedactionOptions, ReplayOptions, ReplayMode, ReplayResult, ResourceBuilderApi, ResourceDefinition, ResourceRecipe, RiskConfig, RiskLevel, RiskResult, SandboxConfig, SchemaLike, SchemaDiff, SchemaRegistryApi, SecurityConfig, ServiceContract, ServiceContractReport, ShadowConfig, SloConfig, SloEvaluation, SnapshotDiff, SnapshotDiffData, StateProof, RolloutConfig, Runbook, StaleEvent, StaleZeroHooks, StaleZeroConfig, StudioApi, StudioOptions, TemplateDefinition, TenantConfig, TargetAction, TargetRef, TimeMachineApi, TimeMachineSearchOptions, UndoPreview, UndoResult, UndoableDefinition, UndoReceiptInfo, WorkflowResult, WorkflowStep, WorkflowStepRunner, WhyResult } from \"./types.js\";",
+    "export type { Adapter, ApprovalConfig, AuditEvent, BadgeResult, BlackboxConfig, BlackboxEntry, BrowserHelperOptions, CanaryResult, ChaosConfig, ChangedOptions, CommandDefinition, CompiledManifest, ConsistencyProfile, ConsistencyMode, CoalesceConfig, CostReport, Diagnostic, DistributedConfig, DriftApi, DriftFinding, DriftProbe, DriftReport, EntityRef, EventBus, ExplainStaleReport, ExecutionConfig, ExecutionResult, ExecutionStatus, FlowResult, FlowStepOptions, FlowStepReceipt, FreshnessBudget, FreshnessStatus, GraphLintFinding, GraphLintReport, GraphLintRule, GraphLintSeverity, HeatmapReport, FreshnessSloDashboardReport, HumanReceipt, JsonPrimitive, JsonValue, Manifest, MaybePromise, MarketplaceEntry, MirrorDefinition, MutationContract, MutationContractResult, MutationContext, MutationDefinition, MutationSnapshot, MutationSnapshotData, NotifyConfig, OptimizationReport, OwnershipMap, Preview, PreviewConfidence, ProjectScore, ProofResult, RateLimitConfig, Receipt, ReceiptConfig, RECEIPT_SCHEMA_VERSION, ReceiptSnapshot, ReceiptStatus, ReceiptStore, ReceiptListOptions, StaleZeroMode, UndeclaredMutationPolicy, DevtoolsConfig, BatchExecutionResult, RecipeInstaller, RedactionOptions, ReplayOptions, ReplayMode, ReplayResult, ResourceBuilderApi, ResourceDefinition, ResourceRecipe, RiskConfig, RiskLevel, RiskResult, SandboxConfig, SchemaLike, SchemaDiff, SchemaRegistryApi, SecurityConfig, ServiceContract, ServiceContractReport, ShadowConfig, SloConfig, SloEvaluation, SnapshotDiff, SnapshotDiffData, StateProof, RolloutConfig, Runbook, StaleEvent, StaleZeroHooks, StaleZeroConfig, StudioApi, StudioOptions, TemplateDefinition, TenantConfig, TargetAction, TargetRef, TimeMachineApi, TimeMachineSearchOptions, UndoPreview, UndoResult, UndoableDefinition, UndoReceiptInfo, WorkflowResult, WorkflowStep, WorkflowStepRunner, WhyResult } from \"./types.js\";",
     "export type { AutopilotRecipeOptions, CommandInput, MutationInput, ReceiptsApi, StaleZero } from \"./engine.js\";",
+    "export type { PipelineContext, PipelineHooks } from \"./engine/lifecycle.js\";",
+    "export { DynamoDbReceiptStore, type DynamoDbReceiptClient, type DynamoDbReceiptStoreOptions } from \"./stores/dynamodb-store.js\";",
+    "export { FileReceiptStore } from \"./stores/file-store.js\";",
     "export { MemoryReceiptStore } from \"./store.js\";",
+    "export { OpenSearchReceiptStore, type OpenSearchReceiptClient, type OpenSearchReceiptStoreOptions } from \"./stores/opensearch-store.js\";",
+    "export { PostgresReceiptStore } from \"./stores/postgres-store.js\";",
+    "export { RedisReceiptStore, type RedisReceiptClient, type RedisReceiptStoreOptions } from \"./stores/redis-store.js\";",
+    "export { S3ReceiptStore, type S3ReceiptClient, type S3ReceiptStoreOptions } from \"./stores/s3-store.js\";",
+    "export { SqliteReceiptStore } from \"./stores/sqlite-store.js\";",
+    "export { StaleZeroError, StaleZeroValidationError, StaleZeroUnknownMutationError, StaleZeroSecurityError, StaleZeroTimeoutError, StaleZeroConfigError, StaleZeroExecutionError, StaleZeroApprovalRequiredError, StaleZeroTenantBoundaryError, StaleZeroPayloadTooLargeError, StaleZeroProofError, isStaleZeroError, STALEZERO_DOCS_BASE } from \"./errors.js\";",
     "export { analyticsTarget, apolloTarget, auditLogTarget, billingTarget, blobTarget, broadcastChannelTarget, browserCacheTarget, bunSqliteTarget, cartTarget, catalogTarget, cdnPurgeTarget, cdnTarget, checkoutTarget, cloudflareCacheTarget, cloudfrontTarget, customTarget, cookieTarget, cronTarget, deadLetterTarget, denoKvTarget, drizzleTarget, edgeConfigTarget, emailTarget, entity, fastlyTarget, featureFlagTarget, httpTarget, imageCacheTarget, indexTarget, inventoryTarget, jobTarget, localStorageTarget, metricsTarget, mongoTarget, nextPathTarget, nextTagTarget, netlifyCacheTarget, objectStorageTarget, orderTarget, outboxTarget, permissionTarget, postgresNotifyTarget, prismaTarget, pushTarget, queryTarget, queueTarget, redisPatternTarget, redisTarget, roleTarget, reduxTarget, s3Target, searchTarget, sequelizeTarget, serviceWorkerTarget, sessionTarget, smsTarget, socketTarget, streamTarget, stripeTarget, swrTarget, target, tenantTarget, topicTarget, typeormTarget, vercelCacheTarget, webhookTarget, workflowTarget, zustandTarget } from \"./targets.js\";",
+    "export { assertSafeHttpTarget, assertSafeHttpUrl, assertSafeHttpMethod, httpSafetyOptionsFromTarget, type HttpSafetyOptions } from \"./http-safety.js\";",
+    "export { computeReceiptHash, stableHash, verifyReceiptHash, verifyReceiptIntegrity } from \"./utils/hashing.js\";",
     "export { createId } from \"./ids.js\";",
-    "export { createReceipt, receiptToText } from \"./receipt.js\";",
-    "export { createStaleZero, QuickMutationBuilder, StaleZeroEngine, StaleZeroExecutionError, StaleZeroFlowBuilder, StaleZeroResourceBuilder } from \"./engine.js\";"
+    "export { createReceipt, receiptToText, receiptToMarkdown, receiptToSlack, receiptToMermaid, receiptToHtml, receiptToGitHubComment } from \"./receipt.js\";",
+    "export { createStaleZero, QuickMutationBuilder, StaleZeroEngine, StaleZeroFlowBuilder, StaleZeroResourceBuilder } from \"./engine.js\";",
+    "export { defineAdapter, adapterMaturityBadge, createAdapterConformancePlan, type AdapterDefinition, type AdapterConformanceOptions } from \"./define-adapter.js\";",
+    "export { freshnessSloDashboardFromReceipts } from \"./utils/slo-dashboard.js\";",
+    "export { productionPreset, developmentPreset, testPreset, resolveStaleZeroMode } from \"./presets.js\";",
+    "export { withTimeout } from \"./timeout.js\";"
   ],
   "create-stalezero-adapter-template": [
     "export declare function adapterTemplateFiles(options?: AdapterTemplateOptions): TemplateFile[];",
@@ -178,7 +207,8 @@
     "export declare function createOpenTelemetryHooks(tracer: TracerLike): StaleZeroHooks;",
     "export declare function receiptAttributes(receipt: Receipt): Record<string, string | number | boolean>;",
     "export type SpanLike = {",
-    "export type TracerLike = {"
+    "export type TracerLike = {",
+    "export { createInMemoryMetrics, createStaleZeroMetricsHooks, renderPrometheusMetrics, type MetricsRecorder, type StaleZeroMetrics } from \"./metrics.js\";"
   ],
   "@stalezero/pack-auth": [
     "export declare function authPack(stale: StaleZero): void;",
@@ -210,6 +240,8 @@
   ],
   "stalezero": [
     "export * from \"@stalezero/apollo\";",
+    "export * from \"@stalezero/bullmq\";",
+    "export * from \"@stalezero/cdn\";",
     "export * from \"@stalezero/cloudflare-kv\";",
     "export * from \"@stalezero/core\";",
     "export * from \"@stalezero/devtools\";",
@@ -218,6 +250,7 @@
     "export * from \"@stalezero/http\";",
     "export * from \"@stalezero/http-bus\";",
     "export * from \"@stalezero/kafka-bus\";",
+    "export * from \"@stalezero/memcached\";",
     "export * from \"@stalezero/memory\";",
     "export * from \"@stalezero/memory-bus\";",
     "export * from \"@stalezero/nats-bus\";",
@@ -241,6 +274,8 @@
     "export * from \"@stalezero/zustand\";"
   ],
   "@stalezero/testing": [
+    "export declare const createAdapterTestSuite: typeof adapterContractSuite;",
+    "export declare const createConformanceTests: typeof adapterContractSuite;",
     "export declare const jestMatchers: {",
     "export declare const vitestMatchers: {",
     "export declare function adapterContractSuite(options: AdapterContractOptions): Array<{",
