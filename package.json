@@ -89,6 +89,6 @@
     "typescript": "^5.9.3",
     "fast-check": "^4.3.0",
     "vitepress": "^1.6.3",
-    "vitest": "^4.0.14"
+    "vitest": "^4.1.11"
   }
 }
